@@ -88,7 +88,8 @@ try {
   const runAt = await page.evaluate(() => {
     const date = new Date(Date.now() + 7_000);
     const pad = (value) => String(value).padStart(2, "0");
-    return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
+    const minute = `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+    return date.getSeconds() ? `${minute}:${pad(date.getSeconds())}` : minute;
   });
   await page.locator("#schedule-at").fill(runAt);
   await page.locator("#schedule").click();
