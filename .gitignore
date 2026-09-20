@@ -1,0 +1,26 @@
+# Credentials and local service data
+*auth*.json
+state*.json
+.auth.json.*
+.state.json.*
+.runtime.json*
+.server.lock
+*.log
+data/
+.env
+.env.*
+
+# Python tooling
+__pycache__/
+*.py[cod]
+.venv/
+.ruff_cache/
+.pytest_cache/
+.coverage
+htmlcov/
+node_modules/
+
+# Editors and operating systems
+.DS_Store
+._*
+*.swp
