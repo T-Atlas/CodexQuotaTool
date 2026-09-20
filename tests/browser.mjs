@@ -79,6 +79,36 @@ try {
   assert.equal(await page.locator("#auth-file").isDisabled(), true);
   assert.equal(await page.locator("#paste-auth").isDisabled(), true);
   assert.equal(await page.locator("#credit-count").innerText(), "2");
+  assert.notEqual(await page.locator("#next-credit-expiry").innerText(), "—");
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await page.keyboard.press("Tab");
+  assert.equal(
+    await page
+      .locator(".skip-link")
+      .evaluate((el) => el === document.activeElement),
+    true,
+  );
+  await page.keyboard.press("Enter");
+  assert.equal(
+    await page.locator("#main").evaluate((el) => el === document.activeElement),
+    true,
+  );
+  await page
+    .getByRole("navigation", { name: "页面导航" })
+    .getByRole("link", { name: "重置管理" })
+    .click();
+  assert.equal(new URL(page.url()).hash, "#reset-management");
+  assert.equal(
+    await page.evaluate(() => {
+      const section = document
+        .querySelector("#reset-management")
+        .getBoundingClientRect();
+      const header = document.querySelector(".topbar").getBoundingClientRect();
+      return section.top >= header.bottom;
+    }),
+    true,
+  );
+  await page.locator(".brand").click();
 
   await page.locator("#tab-schedule").click();
   await page.locator("#schedule").click();
@@ -172,13 +202,17 @@ try {
   snapshot = await state();
   assert.equal(snapshot.operations[0].status, "nothing_to_reset");
   assert.equal(snapshot.credits.available_count, 1);
-  await page.setViewportSize({ width: 390, height: 844 });
-  assert.equal(
-    await page.evaluate(
-      () => document.documentElement.scrollWidth > innerWidth,
-    ),
-    false,
-  );
+  for (const width of [320, 390, 768, 1024, 1440]) {
+    await page.setViewportSize({ width, height: 900 });
+    assert.equal(
+      await page.evaluate(
+        () => document.documentElement.scrollWidth > innerWidth,
+      ),
+      false,
+      `Dashboard overflows at ${width}px`,
+    );
+  }
+  await page.setViewportSize({ width: 320, height: 640 });
 
   server.kill("SIGTERM");
   await once(server, "exit");
@@ -197,6 +231,18 @@ try {
     true,
   );
   assert.equal(await page.locator("#auth-submit").isDisabled(), true);
+  assert.equal(
+    await page.locator("#auth-dialog").evaluate((dialog) => {
+      const box = dialog.getBoundingClientRect();
+      return (
+        box.top >= 0 &&
+        box.bottom <= innerHeight &&
+        box.left >= 0 &&
+        box.right <= innerWidth
+      );
+    }),
+    true,
+  );
   assert.equal(
     await page.evaluate(
       () => document.documentElement.scrollWidth > innerWidth,

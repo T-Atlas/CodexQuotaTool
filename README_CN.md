@@ -9,6 +9,8 @@
 - 分别管理多条预约，查看执行记录。
 - 使用隔离的离线演示账号体验完整流程。
 
+![演示账号的用量、重置机会和预约任务](docs/dashboard.png)
+
 ## 快速开始
 
 需要 **macOS 或 Linux、Python 3.10+ 和 curl**。服务使用 Python 标准库，网页由静态 HTML、CSS 和 JavaScript 组成。

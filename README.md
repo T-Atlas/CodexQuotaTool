@@ -11,6 +11,8 @@ schedule a one-time redemption.
 - Manage independent schedules and inspect their operation records.
 - Try the workflow with an isolated, offline demo account.
 
+![Dashboard with demo usage, reset credits, and a scheduled reset](docs/dashboard.png)
+
 ## Quick start
 
 Requirements: **macOS or Linux, Python 3.10+, and curl**. The service uses the Python
