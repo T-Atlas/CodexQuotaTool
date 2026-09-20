@@ -1,0 +1,14 @@
+{
+  "name": "codex-quota-tool",
+  "private": true,
+  "license": "MIT",
+  "scripts": {
+    "test:ui": "node tests/browser.mjs",
+    "format": "prettier --write web tests/browser.mjs",
+    "format:check": "prettier --check web tests/browser.mjs"
+  },
+  "devDependencies": {
+    "playwright": "1.62.1",
+    "prettier": "3.9.8"
+  }
+}
