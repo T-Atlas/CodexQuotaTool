@@ -847,6 +847,37 @@ dialog h2 {
   font-size: 21px;
   margin-bottom: 12px;
 }
+#auth-dialog {
+  max-width: 600px;
+}
+#auth-dialog .field-label {
+  margin-top: 18px;
+}
+#auth-json {
+  display: block;
+  width: 100%;
+  min-height: 200px;
+  max-height: 45vh;
+  resize: vertical;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 12px;
+  color: var(--ink);
+  background: #fafcfb;
+  font:
+    12px/1.6 ui-monospace,
+    SFMono-Regular,
+    Consolas,
+    monospace;
+  overflow-wrap: anywhere;
+}
+#auth-json[aria-invalid="true"] {
+  border-color: var(--danger);
+}
+#auth-json-error {
+  margin-top: 12px;
+  margin-bottom: 0;
+}
 #confirm-description {
   font-size: 13px;
   color: var(--muted);

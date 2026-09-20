@@ -2,6 +2,7 @@
 
 (() => {
   const $ = (id) => document.getElementById(id);
+  const MAX_AUTH_BYTES = 1000 * 1024;
   const zone = Intl.DateTimeFormat().resolvedOptions().timeZone || "本地时区";
   const ui = {
     state: null,
@@ -251,6 +252,11 @@
     const blocked = ambiguousOperation();
     $("refresh").disabled = busy || !loaded;
     $("auth-file").disabled = busy || Boolean(ui.state?.demo);
+    $("paste-auth").disabled = busy || Boolean(ui.state?.demo);
+    $("auth-submit").disabled =
+      busy || Boolean(ui.state?.demo) || !$("auth-json").value.trim();
+    $("auth-json").disabled = ui.posting;
+    $("auth-cancel").disabled = ui.posting;
     $("reload-auth").disabled = busy || Boolean(ui.state?.demo);
     $("consume").disabled =
       busy || !selected || blocked || activeSchedule(selected?.id);
@@ -292,7 +298,7 @@
       account.error ||
       (meta.length
         ? meta.join(" · ")
-        : "凭证由本机服务读取；页面不会展示令牌。");
+        : "凭证由本机服务保存，导入后显示账号摘要。");
     $("demo-banner").hidden = !state.demo;
   }
 
@@ -822,20 +828,28 @@
     $("confirm-dialog").showModal();
   }
 
-  async function importFile(file) {
-    if (!file || ui.posting || $("auth-file").disabled) return;
-    if (file.size > 1000 * 1024) {
-      notification("文件过大，请选择有效的 auth.json（小于 1 MB）。", "error");
-      return;
-    }
+  async function importAuthText(text, reportError) {
+    if (ui.posting || $("auth-file").disabled) return false;
     let auth;
     try {
-      auth = JSON.parse(await file.text());
+      if (!text.trim()) throw new Error("请提供 auth.json 的完整 JSON。");
+      if (new TextEncoder().encode(text).length > MAX_AUTH_BYTES)
+        throw new Error("凭证内容过大，请使用小于 1 MB 的 JSON。");
+      try {
+        auth = JSON.parse(text.trim());
+      } catch {
+        throw new Error("JSON 格式错误，请检查括号、引号和逗号。");
+      }
       if (!auth || typeof auth !== "object" || Array.isArray(auth))
-        throw new Error("not an object");
-    } catch {
-      notification("无法解析 JSON，请选择有效的 auth.json。", "error");
-      return;
+        throw new Error("凭证必须是 JSON 对象。");
+      if (
+        new TextEncoder().encode(JSON.stringify({ auth })).length >
+        MAX_AUTH_BYTES
+      )
+        throw new Error("凭证内容过大，请使用小于 1 MB 的 JSON。");
+    } catch (error) {
+      reportError(error.message);
+      return false;
     }
     const imported = await post(
       "/api/auth",
@@ -846,8 +860,43 @@
     if (imported) {
       ui.inputTouched = false;
       renderCredits(ui.state);
+    } else {
+      reportError($("notice").textContent);
     }
-    $("auth-file").value = "";
+    return imported;
+  }
+
+  async function importFile(file) {
+    if (!file || ui.posting || $("auth-file").disabled) return;
+    const reportError = (message) => notification(message, "error");
+    try {
+      if (file.size > MAX_AUTH_BYTES) {
+        reportError("凭证内容过大，请使用小于 1 MB 的 JSON。");
+        return;
+      }
+      await importAuthText(await file.text(), reportError);
+    } catch {
+      reportError("文件读取失败，请重新选择 auth.json。");
+    } finally {
+      $("auth-file").value = "";
+    }
+  }
+
+  function pasteError(message = "") {
+    $("auth-json-error").textContent = message;
+    $("auth-json-error").hidden = !message;
+    $("auth-json").setAttribute("aria-invalid", String(Boolean(message)));
+  }
+
+  function clearAuthInput() {
+    $("auth-json").value = "";
+    pasteError();
+    updateControls();
+  }
+
+  function closeAuthDialog() {
+    clearAuthInput();
+    $("auth-dialog").close();
   }
 
   $("timezone").textContent = zone;
@@ -869,6 +918,26 @@
   $("auth-file").addEventListener("change", (event) =>
     importFile(event.target.files[0]),
   );
+  $("paste-auth").addEventListener("click", () => {
+    clearAuthInput();
+    $("auth-dialog").showModal();
+    $("auth-json").focus();
+  });
+  $("auth-json").addEventListener("input", () => {
+    pasteError();
+    updateControls();
+  });
+  $("auth-submit").addEventListener("click", async () => {
+    if ($("auth-submit").disabled) return;
+    if (await importAuthText($("auth-json").value, pasteError))
+      closeAuthDialog();
+  });
+  $("auth-cancel").addEventListener("click", closeAuthDialog);
+  $("auth-dialog").addEventListener("cancel", (event) => {
+    event.preventDefault();
+    if (!ui.posting) closeAuthDialog();
+  });
+  $("auth-dialog").addEventListener("close", clearAuthInput);
   $("confirm-submit").addEventListener("click", async () => {
     if (!ui.confirm || ui.posting) return;
     const action = ui.confirm;

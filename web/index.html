@@ -61,7 +61,7 @@
           </div>
           <p id="account-label">将 auth.json 放进工具文件夹，或在这里导入。</p>
           <p id="account-meta" class="micro">
-            凭证由本机服务读取；页面不会展示令牌。
+            凭证由本机服务保存，导入后显示账号摘要。
           </p>
         </div>
         <div class="import-actions">
@@ -72,7 +72,9 @@
             class="visually-hidden"
             type="file"
             accept=".json,application/json"
-          /><button id="reload-auth" class="button button-secondary" disabled>
+          /><button id="paste-auth" class="button button-secondary" disabled>
+            粘贴 JSON</button
+          ><button id="reload-auth" class="button button-secondary" disabled>
             读取文件夹中的 auth.json</button
           ><span class="micro">有预约时可更新同账号凭证</span>
         </div>
@@ -226,6 +228,41 @@
         ><span>页面每 3 秒同步本地状态；刷新与执行前后会查询上游。</span>
       </footer>
     </main>
+    <dialog
+      id="auth-dialog"
+      aria-labelledby="auth-dialog-title"
+      aria-describedby="auth-dialog-description"
+    >
+      <h2 id="auth-dialog-title">粘贴 auth.json</h2>
+      <p id="auth-dialog-description" class="micro">
+        粘贴完整 JSON，解析后保存到本机。关闭输入框时会清空粘贴内容。
+      </p>
+      <label for="auth-json" class="field-label">凭证 JSON</label>
+      <textarea
+        id="auth-json"
+        rows="10"
+        spellcheck="false"
+        autocomplete="off"
+        autocapitalize="off"
+        autocorrect="off"
+        aria-describedby="auth-json-error"
+        placeholder="在这里粘贴 auth.json 的完整 JSON"
+      ></textarea>
+      <p id="auth-json-error" class="inline-error" role="alert" hidden></p>
+      <div class="dialog-actions">
+        <button id="auth-cancel" class="button button-secondary" type="button">
+          取消
+        </button>
+        <button
+          id="auth-submit"
+          class="button button-primary"
+          type="button"
+          disabled
+        >
+          解析并导入
+        </button>
+      </div>
+    </dialog>
     <dialog
       id="confirm-dialog"
       aria-labelledby="confirm-title"

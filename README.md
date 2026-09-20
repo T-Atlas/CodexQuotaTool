@@ -26,9 +26,10 @@ The launcher opens the dashboard and prints its URL. It searches for an availabl
 loopback port starting at `8765`. On macOS, you can also double-click
 `启动.command`.
 
-Import `auth.json`, then click **刷新用量与重置机会** to query your account. You can
-also place the file in the project directory; the service reads changes while
-idle. The dashboard currently uses Chinese labels.
+Upload `auth.json`, or click **粘贴 JSON**, paste its contents, and select
+**解析并导入**. Then click **刷新用量与重置机会** to query your account. You can also
+place the file in the project directory; the service reads changes while idle.
+The dashboard currently uses Chinese labels.
 
 Supported credentials include Codex's nested `tokens` object and CLIProxyAPI's
 flat OAuth format. Both need an `access_token` and an account ID, supplied as
@@ -103,8 +104,9 @@ it when starting or restarting the service if your network needs a proxy.
 | `data/demo/` | Isolated demo credentials and state |
 
 The server binds to `127.0.0.1`, validates request origins, and requires a local
-session token for mutations. Credential tokens stay out of the dashboard and
-process arguments. Requests go to fixed ChatGPT quota endpoints and the OpenAI
+session token for mutations. The dashboard shows an account summary after import
+and clears pasted text when the input dialog closes. Credential tokens stay out
+of process arguments. Requests go to fixed ChatGPT quota endpoints and the OpenAI
 OAuth token endpoint. These local data files are covered by `.gitignore`.
 
 Treat credentials and state files as private. Bug reports should include the

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
 import { once } from "node:events";
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdtemp, readFile, rm } from "node:fs/promises";
 import net from "node:net";
 import os from "node:os";
 import path from "node:path";
@@ -17,18 +17,7 @@ await once(socket, "listening");
 const port = socket.address().port;
 await new Promise((resolve) => socket.close(resolve));
 const base = `http://127.0.0.1:${port}`;
-const server = spawn(
-  "python3",
-  ["server.py", "--demo", "--root", dataRoot, "--port", String(port)],
-  { cwd: root, stdio: ["ignore", "pipe", "pipe"] },
-);
-let serverOutput = "";
-server.stdout.on("data", (chunk) => {
-  serverOutput += chunk;
-});
-server.stderr.on("data", (chunk) => {
-  serverOutput += chunk;
-});
+let server;
 let browser;
 
 async function state() {
@@ -36,7 +25,26 @@ async function state() {
   return (await response.json()).state;
 }
 
-try {
+async function startServer(demo) {
+  server = spawn(
+    "python3",
+    [
+      "server.py",
+      ...(demo ? ["--demo"] : []),
+      "--root",
+      dataRoot,
+      "--port",
+      String(port),
+    ],
+    { cwd: root, stdio: ["ignore", "pipe", "pipe"] },
+  );
+  let serverOutput = "";
+  server.stdout.on("data", (chunk) => {
+    serverOutput += chunk;
+  });
+  server.stderr.on("data", (chunk) => {
+    serverOutput += chunk;
+  });
   let ready = false;
   for (let attempt = 0; attempt < 60; attempt += 1) {
     if (server.exitCode !== null) throw new Error(serverOutput);
@@ -49,6 +57,10 @@ try {
     await delay(100);
   }
   assert.ok(ready, serverOutput || "Local server did not start");
+}
+
+try {
+  await startServer(true);
   browser = await chromium.launch({ channel: process.env.PLAYWRIGHT_CHANNEL });
   const page = await browser.newPage({
     viewport: { width: 1440, height: 1050 },
@@ -65,6 +77,7 @@ try {
   await page.waitForSelector(".connection.connected");
   assert.equal(await page.locator("#demo-banner").isVisible(), true);
   assert.equal(await page.locator("#auth-file").isDisabled(), true);
+  assert.equal(await page.locator("#paste-auth").isDisabled(), true);
   assert.equal(await page.locator("#credit-count").innerText(), "2");
 
   await page.locator("#tab-schedule").click();
@@ -165,13 +178,128 @@ try {
     ),
     false,
   );
+
+  server.kill("SIGTERM");
+  await once(server, "exit");
+  await startServer(false);
+  await page.goto(base);
+  await page.waitForSelector(".connection.connected");
+  const imports = [];
+  page.on("request", (request) => {
+    if (request.url().endsWith("/api/auth")) imports.push(request);
+  });
+  await page.locator("#paste-auth").click();
+  assert.equal(
+    await page
+      .locator("#auth-json")
+      .evaluate((el) => el === document.activeElement),
+    true,
+  );
+  assert.equal(await page.locator("#auth-submit").isDisabled(), true);
+  assert.equal(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth > innerWidth,
+    ),
+    false,
+  );
+  for (const [text, message] of [
+    ['{"access_token":', "JSON 格式错误"],
+    ["[]", "JSON 对象"],
+    ["null", "JSON 对象"],
+    [JSON.stringify({ note: "中".repeat(350_000) }), "内容过大"],
+  ]) {
+    await page.locator("#auth-json").fill(text);
+    await page.locator("#auth-submit").click();
+    await page.waitForFunction(
+      (expected) =>
+        document
+          .querySelector("#auth-json-error")
+          .textContent.includes(expected),
+      message,
+    );
+    assert.equal(imports.length, 0);
+    assert.equal(
+      await page.locator("#auth-dialog").evaluate((el) => el.open),
+      true,
+    );
+  }
+  await page.locator("#auth-json").fill("{}");
+  await page.locator("#auth-submit").click();
+  await page.waitForFunction(() =>
+    document
+      .querySelector("#auth-json-error")
+      .textContent.includes("access_token"),
+  );
+  assert.equal(imports.length, 1);
+  assert.equal(await page.locator("#auth-json").inputValue(), "{}");
+
+  const pasted = {
+    tokens: {
+      access_token: "pasted-test-access",
+      refresh_token: "pasted-test-refresh",
+      account_id: "pasted-test-account",
+    },
+  };
+  await page.locator("#auth-json").fill(JSON.stringify(pasted, null, 2));
+  await page.locator("#auth-submit").click();
+  await page.waitForFunction(
+    () => !document.querySelector("#auth-dialog").open,
+  );
+  assert.equal(imports.length, 2);
+  assert.equal(await page.locator("#auth-json").inputValue(), "");
+  assert.equal((await state()).account.account_id, "pasted-test-account");
+  assert.deepEqual(
+    JSON.parse(await readFile(path.join(dataRoot, "auth.json"), "utf8")),
+    pasted,
+  );
+  assert.equal(
+    (await page.locator("body").innerText()).includes("pasted-test-access"),
+    false,
+  );
+  assert.equal(
+    await page.evaluate(() => localStorage.length + sessionStorage.length),
+    0,
+  );
+
+  await page.locator("#paste-auth").click();
+  await page.locator("#auth-json").fill(JSON.stringify(pasted));
+  await page.keyboard.press("Escape");
+  await page.waitForFunction(
+    () => !document.querySelector("#auth-dialog").open,
+  );
+  assert.equal(await page.locator("#auth-json").inputValue(), "");
+  assert.equal(imports.length, 2);
+  await page.locator("#paste-auth").click();
+  await page.locator("#auth-json").fill(JSON.stringify(pasted));
+  await page.locator("#auth-cancel").click();
+  assert.equal(await page.locator("#auth-json").inputValue(), "");
+
+  const uploaded = {
+    access_token: "uploaded-test-access",
+    account_id: "uploaded-test-account",
+  };
+  await page.locator("#auth-file").setInputFiles({
+    name: "auth.json",
+    mimeType: "application/json",
+    buffer: Buffer.from(JSON.stringify(uploaded)),
+  });
+  await page.waitForFunction(() =>
+    document.querySelector("#account-meta").textContent.includes("uploaded-te"),
+  );
+  assert.equal((await state()).account.account_id, "uploaded-test-account");
+  assert.deepEqual(
+    JSON.parse(await readFile(path.join(dataRoot, "auth.json"), "utf8")),
+    uploaded,
+  );
+  assert.equal(imports.length, 3);
+  assert.equal(await page.locator("#auth-file").inputValue(), "");
   assert.deepEqual(errors, []);
   console.log(
-    "Browser checks passed: scheduling, cancellation, confirmation context, polling order, demo isolation, mobile layout.",
+    "Browser checks passed: pasted and uploaded credentials, validation, scheduling, cancellation, confirmation context, polling order, demo isolation, mobile layout.",
   );
 } finally {
   await browser?.close();
-  if (server.exitCode === null) {
+  if (server?.exitCode === null) {
     server.kill("SIGTERM");
     await once(server, "exit");
   }
