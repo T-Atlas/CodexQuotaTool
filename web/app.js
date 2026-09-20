@@ -37,6 +37,18 @@
     return el;
   }
 
+  function iconFrame(name, className) {
+    const frame = node("span", className);
+    const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+    svg.setAttribute("class", "icon");
+    svg.setAttribute("aria-hidden", "true");
+    const use = document.createElementNS("http://www.w3.org/2000/svg", "use");
+    use.setAttribute("href", `#i-${name}`);
+    svg.append(use);
+    frame.append(svg);
+    return frame;
+  }
+
   function parseDate(value) {
     if (value === null || value === undefined || value === "") return null;
     const timestamp =
@@ -318,7 +330,7 @@
     if (!usage?.windows?.length) {
       const card = node("article", "card usage-card placeholder");
       const top = node("div", "card-top");
-      top.append(node("h3", "", "用量窗口"), node("span", "window-icon", "◷"));
+      top.append(node("h3", "", "用量窗口"), iconFrame("clock", "window-icon"));
       const number = node("div", "usage-number", "—");
       number.append(node("span", "", "剩余"));
       const meter = node("div", "meter");
@@ -343,7 +355,7 @@
       const top = node("div", "card-top");
       top.append(
         node("h3", "", windowLabel(window)),
-        node("span", "window-icon", "◷"),
+        iconFrame("clock", "window-icon"),
       );
       const used =
         window.used_percent !== null &&
@@ -448,6 +460,15 @@
       ? `机会查询：${data.error}`
       : "";
     const items = credits();
+    const next = items.find(
+      (credit) => usable(credit) && parseDate(credit.expires_at),
+    );
+    $("next-credit-expiry").textContent = next ? time(next.expires_at) : "—";
+    $("next-credit-relative").textContent = next
+      ? relative(next.expires_at)
+      : data
+        ? "暂无可用到期时间"
+        : "等待查询";
     if (!items.some((credit) => credit.id === ui.selected && usable(credit))) {
       ui.selected = items.find(usable)?.id || "";
       ui.inputTouched = false;
@@ -455,14 +476,14 @@
     if (!items.length) {
       const empty = node("div", "empty-state");
       empty.append(
-        node("span", "empty-icon", "◇"),
+        iconFrame("credit", "empty-icon"),
         node("p", "", data ? "没有可显示的重置机会" : "重置机会会显示在这里"),
         node(
           "span",
           "",
           data && Number(total) > 0
             ? "次数已返回，但未取得可操作的机会明细"
-            : "查询不会消耗次数",
+            : "刷新后查看剩余次数与到期时间",
         ),
       );
       $("credit-list").replaceChildren(empty);
@@ -525,7 +546,9 @@
       ? "warn"
       : status === "failed"
         ? "error"
-        : ["cancelled", "no_credit", "nothing_to_reset"].includes(status)
+        : ["cancelled", "no_credit", "nothing_to_reset", "not_sent"].includes(
+              status,
+            )
           ? "neutral"
           : "";
   }
@@ -567,7 +590,7 @@
             job.message || "等待执行。请保持后台服务运行，并让 Mac 保持唤醒。",
           ),
         );
-        row.append(node("span", "schedule-symbol", "◷"), content);
+        row.append(iconFrame("clock", "schedule-symbol"), content);
         if (job.status === "scheduled") {
           const cancel = node(
             "button",
@@ -595,7 +618,7 @@
         node(
           "div",
           "history-empty",
-          "还没有重置操作。查询用量不会产生消耗记录。",
+          "还没有重置操作。执行后的结果会记录在这里。",
         ),
       );
       return;
@@ -610,14 +633,15 @@
         const row = node("article", "operation");
         const cls = badgeClass(operation.status);
         row.append(
-          node(
-            "span",
-            `op-indicator ${cls}`,
+          iconFrame(
             operation.status === "succeeded"
-              ? "✓"
+              ? "check"
               : operation.status === "failed"
-                ? "×"
-                : "·",
+                ? "close"
+                : operation.status === "uncertain"
+                  ? "alert"
+                  : "clock",
+            `op-indicator ${cls}`,
           ),
         );
         const content = node("div", "op-content");

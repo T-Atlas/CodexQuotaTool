@@ -4,42 +4,103 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
     <meta name="color-scheme" content="light" />
+    <meta name="theme-color" content="#ffffff" />
     <title>Codex 额度管家</title>
     <link
       rel="icon"
-      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='18' fill='%23152d42'/%3E%3Cpath d='m28 18-14 14 14 14m8-28 14 14-14 14' fill='none' stroke='%237be0ca' stroke-width='5'/%3E%3C/svg%3E"
+      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='16' fill='%232563eb'/%3E%3Cpath d='m25 20-12 12 12 12m14-24 12 12-12 12' fill='none' stroke='white' stroke-width='5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E"
     />
     <link rel="stylesheet" href="/style.css" />
     <script src="/app.js" defer></script>
   </head>
   <body>
-    <div class="topbar">
-      <a class="brand" href="/" aria-label="Codex 额度管家首页"
-        ><span class="brand-mark" aria-hidden="true">&lt;/&gt;</span
-        ><span
-          >CODEX QUOTA <span class="brand-divider">/</span>
-          <span class="brand-sub">本地控制台</span></span
-        ></a
-      ><span id="connection" class="connection"
-        ><span aria-hidden="true"></span>连接本地服务中</span
-      >
-    </div>
-    <main class="shell">
+    <svg
+      class="icon-defs"
+      xmlns="http://www.w3.org/2000/svg"
+      aria-hidden="true"
+    >
+      <symbol id="i-code" viewBox="0 0 24 24">
+        <path d="m8 7-5 5 5 5m8-10 5 5-5 5m-3-13-2 16" />
+      </symbol>
+      <symbol id="i-refresh" viewBox="0 0 24 24">
+        <path
+          d="M20 4v6h-6M4 20v-6h6M5.2 8a7.5 7.5 0 0 1 12.4-2.6L20 8M4 16l2.4 2.6A7.5 7.5 0 0 0 18.8 16"
+        />
+      </symbol>
+      <symbol id="i-account" viewBox="0 0 24 24">
+        <circle cx="12" cy="8" r="3.5" />
+        <path d="M5 21v-2a7 7 0 0 1 14 0v2" />
+      </symbol>
+      <symbol id="i-upload" viewBox="0 0 24 24">
+        <path d="M12 16V3m-5 5 5-5 5 5M4 15v5h16v-5" />
+      </symbol>
+      <symbol id="i-paste" viewBox="0 0 24 24">
+        <rect x="8" y="3" width="8" height="4" rx="1.5" />
+        <path d="M8 5H5v16h14V5h-3M8 12h8m-8 4h5" />
+      </symbol>
+      <symbol id="i-folder" viewBox="0 0 24 24">
+        <path d="M3 7V5h7l2 3h9v12H3V7Zm0 3h18" />
+      </symbol>
+      <symbol id="i-clock" viewBox="0 0 24 24">
+        <circle cx="12" cy="12" r="9" />
+        <path d="M12 7v5l3 2" />
+      </symbol>
+      <symbol id="i-credit" viewBox="0 0 24 24">
+        <rect x="3" y="5" width="18" height="14" rx="3" />
+        <path d="M3 10h18M7 15h3" />
+      </symbol>
+      <symbol id="i-bolt" viewBox="0 0 24 24">
+        <path d="m13 3-9 11h7l-1 7L21 9h-8l1-6" />
+      </symbol>
+      <symbol id="i-arrow" viewBox="0 0 24 24">
+        <path d="M4 12h16m-6-6 6 6-6 6" />
+      </symbol>
+      <symbol id="i-check" viewBox="0 0 24 24">
+        <path d="m5 12 4 4L19 6" />
+      </symbol>
+      <symbol id="i-alert" viewBox="0 0 24 24">
+        <path d="M12 3 2 21h20L12 3Zm0 6v5m0 3v1" />
+      </symbol>
+      <symbol id="i-close" viewBox="0 0 24 24">
+        <path d="m6 6 12 12M6 18 18 6" />
+      </symbol>
+    </svg>
+    <a class="skip-link" href="#main">跳转到主内容</a>
+    <header class="topbar">
+      <div class="topbar-inner">
+        <a class="brand" href="#main" aria-label="Codex 额度管家首页">
+          <span class="brand-mark"
+            ><svg class="icon" aria-hidden="true"><use href="#i-code" /></svg
+          ></span>
+          <span class="brand-name"
+            >Codex<span>Quota</span
+            ><span class="brand-sub">本地控制台</span></span
+          >
+        </a>
+        <nav class="top-nav" aria-label="页面导航">
+          <a href="#overview">额度总览</a>
+          <a href="#reset-management">重置管理</a>
+          <a href="#activity">操作记录</a>
+        </nav>
+        <span id="connection" class="connection"
+          ><span aria-hidden="true"></span>连接本地服务中</span
+        >
+      </div>
+    </header>
+    <main id="main" class="shell" tabindex="-1">
       <header class="page-head">
         <div>
-          <div class="eyebrow">YOUR LIMITS, AT A GLANCE</div>
-          <h1>Codex 额度管家<span class="title-dot">.</span></h1>
-          <p class="intro">
-            查看额度与重置机会，把每一次恢复安排在合适的时间。
-          </p>
+          <p class="eyebrow">ACCOUNT OVERVIEW</p>
+          <h1>Codex 额度管家</h1>
+          <p class="intro">查看账户用量，掌握恢复时间，安排下一次重置。</p>
         </div>
         <button id="refresh" class="button button-primary" disabled>
-          <span aria-hidden="true">↻</span> 刷新用量与重置机会
+          <svg class="icon" aria-hidden="true"><use href="#i-refresh" /></svg>
+          刷新用量与重置机会
         </button>
       </header>
       <div id="demo-banner" class="notice info" hidden>
-        离线演示 · 使用虚构账号和独立数据，不读取真实凭证，不连接
-        ChatGPT，也不消耗真实重置机会。
+        离线演示 · 使用虚构账号和独立数据，体验查询、重置与预约。
       </div>
       <div
         id="notice"
@@ -53,7 +114,9 @@
         class="account-card"
         aria-labelledby="account-heading"
       >
-        <div class="account-icon" aria-hidden="true">⌘</div>
+        <div class="account-icon">
+          <svg class="icon" aria-hidden="true"><use href="#i-account" /></svg>
+        </div>
         <div class="account-copy">
           <div class="account-heading-row">
             <h2 id="account-heading">连接你的 Codex 凭证</h2>
@@ -66,166 +129,230 @@
         </div>
         <div class="import-actions">
           <label for="auth-file" class="button button-secondary"
-            >导入 auth.json</label
-          ><input
+            ><svg class="icon" aria-hidden="true"><use href="#i-upload" /></svg
+            >选择文件</label
+          >
+          <input
             id="auth-file"
             class="visually-hidden"
             type="file"
             accept=".json,application/json"
-          /><button id="paste-auth" class="button button-secondary" disabled>
-            粘贴 JSON</button
-          ><button id="reload-auth" class="button button-secondary" disabled>
-            读取文件夹中的 auth.json</button
-          ><span class="micro">有预约时可更新同账号凭证</span>
+          />
+          <button id="paste-auth" class="button button-secondary" disabled>
+            <svg class="icon" aria-hidden="true"><use href="#i-paste" /></svg
+            >粘贴 JSON
+          </button>
+          <button
+            id="reload-auth"
+            class="button button-quiet"
+            title="读取工具文件夹中的 auth.json"
+            disabled
+          >
+            <svg class="icon" aria-hidden="true"><use href="#i-folder" /></svg
+            >读取本地文件
+          </button>
+          <span class="import-hint micro">支持 auth.json 文件与 JSON 文本</span>
         </div>
       </section>
-      <div class="section-title">
-        <h2>当前额度</h2>
-        <span id="last-refresh" class="micro">导入后点击刷新</span>
-      </div>
-      <section id="usage-cards" class="usage-grid" aria-label="用量窗口">
-        <article class="card usage-card placeholder">
-          <div class="card-top">
-            <h3>用量窗口</h3>
-            <span class="window-icon" aria-hidden="true">◷</span>
+      <section id="overview" aria-labelledby="usage-heading">
+        <div class="section-title">
+          <div>
+            <span class="section-index">01</span>
+            <h2 id="usage-heading">当前额度</h2>
           </div>
-          <div class="usage-number">—<span>剩余</span></div>
-          <div class="meter"><span></span></div>
-          <p class="muted">导入凭证并刷新后，显示用量和自然恢复时间。</p>
-        </article>
-      </section>
-      <div id="usage-error" class="inline-error" hidden></div>
-      <div class="workspace-grid">
-        <section class="card credits-card" aria-labelledby="credits-heading">
-          <div class="card-top">
-            <div>
-              <div class="eyebrow">RESET CREDITS</div>
-              <h2 id="credits-heading">可用重置机会</h2>
+          <span id="last-refresh" class="micro">导入后点击刷新</span>
+        </div>
+        <div id="usage-cards" class="usage-grid" aria-label="用量窗口">
+          <article class="card usage-card placeholder">
+            <div class="card-top">
+              <h3>用量窗口</h3>
+              <span class="window-icon"
+                ><svg class="icon" aria-hidden="true">
+                  <use href="#i-clock" /></svg
+              ></span>
             </div>
-            <span class="chip">按到期时间排序</span>
+            <div class="usage-number">—<span>剩余</span></div>
+            <div class="meter"><span></span></div>
+            <p class="muted">导入凭证并刷新后，显示用量和自然恢复时间。</p>
+          </article>
+        </div>
+        <div id="usage-error" class="inline-error" hidden></div>
+      </section>
+      <section id="reset-management" aria-labelledby="reset-heading">
+        <div class="section-title">
+          <div>
+            <span class="section-index">02</span>
+            <h2 id="reset-heading">重置管理</h2>
           </div>
-          <div class="credit-summary">
-            <strong id="credit-count">—</strong>
-            <div>
-              <span>次可用机会</span>
-              <p id="credit-count-note" class="micro">
-                查询后查看每次机会的到期时间
+          <span class="micro">每条预约使用一次指定机会</span>
+        </div>
+        <div class="workspace-grid">
+          <section class="card credits-card" aria-labelledby="credits-heading">
+            <div class="card-top">
+              <div>
+                <p class="eyebrow">RESET CREDITS</p>
+                <h2 id="credits-heading">可用重置机会</h2>
+              </div>
+              <span class="chip">按到期时间排序</span>
+            </div>
+            <div class="credit-overview">
+              <div class="credit-summary">
+                <strong id="credit-count">—</strong>
+                <div>
+                  <span>次可用机会</span>
+                  <p id="credit-count-note" class="micro">查询后查看到期时间</p>
+                </div>
+              </div>
+              <div class="next-expiry">
+                <span class="micro">最近到期</span
+                ><strong id="next-credit-expiry">—</strong
+                ><span id="next-credit-relative" class="micro">等待查询</span>
+              </div>
+            </div>
+            <p class="credit-help">选择一条机会，立即使用或设置执行时间。</p>
+            <div id="credits-error" class="inline-error" hidden></div>
+            <div id="credit-list" class="credit-list">
+              <div class="empty-state">
+                <span class="empty-icon"
+                  ><svg class="icon" aria-hidden="true">
+                    <use href="#i-credit" /></svg
+                ></span>
+                <p>重置机会会显示在这里</p>
+                <span>刷新后查看剩余次数与到期时间</span>
+              </div>
+            </div>
+            <div class="credit-footer">
+              <span class="tiny-dot" aria-hidden="true"></span
+              ><span>重置机会到期时间与额度自然恢复时间分别计算。</span>
+            </div>
+          </section>
+          <section class="card action-card" aria-labelledby="action-heading">
+            <div class="card-top">
+              <div>
+                <p class="eyebrow">RESET ACTION</p>
+                <h2 id="action-heading">安排一次重置</h2>
+              </div>
+              <span class="window-icon"
+                ><svg class="icon" aria-hidden="true">
+                  <use href="#i-bolt" /></svg
+              ></span>
+            </div>
+            <div class="selected-credit">
+              <span class="micro">当前选择</span
+              ><strong id="selected-credit">尚未选择重置机会</strong
+              ><span id="selected-expiry" class="micro"
+                >查询后选择一条可用机会</span
+              >
+            </div>
+            <div class="action-tabs" role="tablist" aria-label="重置方式">
+              <button
+                id="tab-now"
+                class="action-tab active"
+                role="tab"
+                aria-selected="true"
+                aria-controls="panel-now"
+              >
+                <svg class="icon" aria-hidden="true"><use href="#i-bolt" /></svg
+                >立即使用
+              </button>
+              <button
+                id="tab-schedule"
+                class="action-tab"
+                role="tab"
+                aria-selected="false"
+                aria-controls="panel-schedule"
+                tabindex="-1"
+              >
+                <svg class="icon" aria-hidden="true">
+                  <use href="#i-clock" /></svg
+                >预约执行
+              </button>
+            </div>
+            <div id="panel-now" role="tabpanel" aria-labelledby="tab-now">
+              <p class="action-description">
+                消耗一次重置机会，恢复当前账号的 Codex
+                额度。执行前会重新检查可用状态。
+              </p>
+              <button id="consume" class="button button-primary full" disabled>
+                消耗 1 次重置机会<svg class="icon" aria-hidden="true">
+                  <use href="#i-arrow" />
+                </svg>
+              </button>
+              <p class="micro action-note">
+                提交前会再次确认；成功后无法撤销。
               </p>
             </div>
-          </div>
-          <p class="credit-help">
-            选择一条重置机会，用于下方立即使用或预约。每次绑定所选机会，执行前重新核实可用状态。
-          </p>
-          <div id="credits-error" class="inline-error" hidden></div>
-          <div id="credit-list" class="credit-list">
-            <div class="empty-state">
-              <span class="empty-icon" aria-hidden="true">◇</span>
-              <p>重置机会会显示在这里</p>
-              <span>查询不会消耗次数</span>
-            </div>
-          </div>
-          <div class="credit-footer">
-            <span class="tiny-dot" aria-hidden="true"></span
-            ><span>机会的到期时间与额度的自然恢复时间是两回事。</span>
-          </div>
-        </section>
-        <section class="card action-card" aria-labelledby="action-heading">
-          <div class="card-top">
-            <div>
-              <div class="eyebrow">ONE-TIME RESET</div>
-              <h2 id="action-heading">安排一次重置</h2>
-            </div>
-            <span class="window-icon" aria-hidden="true">↗</span>
-          </div>
-          <div class="selected-credit">
-            <span class="micro">当前选择</span
-            ><strong id="selected-credit">尚未选择重置机会</strong
-            ><span id="selected-expiry" class="micro">—</span>
-          </div>
-          <div class="action-tabs" role="tablist" aria-label="重置方式">
-            <button
-              id="tab-now"
-              class="action-tab active"
-              role="tab"
-              aria-selected="true"
-              aria-controls="panel-now"
+            <div
+              id="panel-schedule"
+              role="tabpanel"
+              aria-labelledby="tab-schedule"
+              hidden
             >
-              立即使用</button
-            ><button
-              id="tab-schedule"
-              class="action-tab"
-              role="tab"
-              aria-selected="false"
-              aria-controls="panel-schedule"
-              tabindex="-1"
-            >
-              预约执行
-            </button>
-          </div>
-          <div id="panel-now" role="tabpanel" aria-labelledby="tab-now">
-            <p class="action-description">
-              消耗一次现有重置机会，恢复当前账号的 Codex
-              额度。执行前会重新检查可用状态。
-            </p>
-            <button id="consume" class="button button-primary full" disabled>
-              消耗 1 次重置机会 <span aria-hidden="true">↗</span>
-            </button>
-            <p class="micro action-note">
-              提交前会再次确认；重置成功后无法撤销。
-            </p>
-          </div>
-          <div
-            id="panel-schedule"
-            role="tabpanel"
-            aria-labelledby="tab-schedule"
-            hidden
-          >
-            <label class="field-label" for="schedule-at"
-              >执行时间 <span id="timezone" class="micro"></span></label
-            ><input id="schedule-at" type="datetime-local" class="date-input" />
-            <div class="quick-times" aria-label="按到期时间快速设置">
-              <button data-before="60">到期前 1 小时</button
-              ><button data-before="30">前 30 分钟</button
-              ><button data-before="10">前 10 分钟</button>
+              <label class="field-label" for="schedule-at"
+                >执行时间<span id="timezone" class="micro"></span
+              ></label>
+              <input
+                id="schedule-at"
+                type="datetime-local"
+                class="date-input"
+              />
+              <div class="quick-times" aria-label="按到期时间快速设置">
+                <button data-before="60">到期前 1 小时</button
+                ><button data-before="30">前 30 分钟</button
+                ><button data-before="10">前 10 分钟</button>
+              </div>
+              <p class="micro schedule-help">
+                执行时请保持服务运行、电脑唤醒。迟到超过 15
+                分钟或机会已过期时会跳过。
+              </p>
+              <button id="schedule" class="button button-primary full" disabled>
+                预约消耗 1 次机会<svg class="icon" aria-hidden="true">
+                  <use href="#i-arrow" />
+                </svg>
+              </button>
             </div>
-            <p class="micro schedule-help">
-              单次执行，只消耗 1 次机会。请保持后台服务运行、Mac
-              处于唤醒状态；迟到超过 15 分钟或机会已过期时会跳过。
-            </p>
-            <button id="schedule" class="button button-primary full" disabled>
-              预约消耗 1 次机会 <span aria-hidden="true">→</span>
-            </button>
-          </div>
-        </section>
-      </div>
+          </section>
+        </div>
+      </section>
       <section
         id="schedules-section"
         aria-labelledby="schedules-heading"
         hidden
       >
         <div class="section-title schedules-title">
-          <h2 id="schedules-heading">预约任务</h2>
+          <div>
+            <span class="section-index"
+              ><svg class="icon" aria-hidden="true"><use href="#i-clock" /></svg
+            ></span>
+            <h2 id="schedules-heading">预约任务</h2>
+          </div>
           <span id="schedules-count" class="micro"></span>
         </div>
         <div id="schedule-list"></div>
       </section>
-      <section class="card history-card" aria-labelledby="history-heading">
+      <section
+        id="activity"
+        class="card history-card"
+        aria-labelledby="history-heading"
+      >
         <div class="card-top">
           <div>
-            <div class="eyebrow">ACTIVITY</div>
+            <p class="eyebrow">ACTIVITY</p>
             <h2 id="history-heading">操作记录</h2>
           </div>
-          <span class="micro">仅记录本工具发起的操作</span>
+          <span class="micro">本工具的执行记录</span>
         </div>
         <div id="operation-list">
           <div class="history-empty">
-            还没有重置操作。查询用量不会产生消耗记录。
+            还没有重置操作。执行后的结果会记录在这里。
           </div>
         </div>
       </section>
       <footer class="page-footer">
-        <span>Codex 额度管家 <span aria-hidden="true">·</span> 本地运行</span
-        ><span>页面每 3 秒同步本地状态；刷新与执行前后会查询上游。</span>
+        <span
+          >CodexQuotaTool
+          <span class="footer-dot" aria-hidden="true"></span>本地运行</span
+        ><span>每 3 秒同步本地状态 · 刷新与执行时查询上游</span>
       </footer>
     </main>
     <dialog
@@ -233,11 +360,21 @@
       aria-labelledby="auth-dialog-title"
       aria-describedby="auth-dialog-description"
     >
-      <h2 id="auth-dialog-title">粘贴 auth.json</h2>
+      <div class="dialog-heading">
+        <span class="dialog-icon"
+          ><svg class="icon" aria-hidden="true"><use href="#i-paste" /></svg
+        ></span>
+        <div>
+          <p class="eyebrow">IMPORT CREDENTIALS</p>
+          <h2 id="auth-dialog-title">粘贴 auth.json</h2>
+        </div>
+      </div>
       <p id="auth-dialog-description" class="micro">
         粘贴完整 JSON，解析后保存到本机。关闭输入框时会清空粘贴内容。
       </p>
-      <label for="auth-json" class="field-label">凭证 JSON</label>
+      <label for="auth-json" class="field-label"
+        >凭证 JSON<span class="micro">最大 1 MB</span></label
+      >
       <textarea
         id="auth-json"
         rows="10"
@@ -251,9 +388,8 @@
       <p id="auth-json-error" class="inline-error" role="alert" hidden></p>
       <div class="dialog-actions">
         <button id="auth-cancel" class="button button-secondary" type="button">
-          取消
-        </button>
-        <button
+          取消</button
+        ><button
           id="auth-submit"
           class="button button-primary"
           type="button"
@@ -269,8 +405,15 @@
       aria-describedby="confirm-description"
     >
       <form method="dialog">
-        <div class="dialog-icon" aria-hidden="true">↗</div>
-        <h2 id="confirm-title">确认操作</h2>
+        <div class="dialog-heading">
+          <span class="dialog-icon"
+            ><svg class="icon" aria-hidden="true"><use href="#i-bolt" /></svg
+          ></span>
+          <div>
+            <p class="eyebrow">CONFIRM RESET</p>
+            <h2 id="confirm-title">确认操作</h2>
+          </div>
+        </div>
         <p id="confirm-description"></p>
         <dl id="confirm-details"></dl>
         <p id="confirm-warning" class="dialog-warning"></p>
