@@ -144,7 +144,10 @@ class Handler(BaseHTTPRequestHandler):
             "/": "index.html",
             "/index.html": "index.html",
             "/app.js": "app.js",
+            "/motion.js": "motion.js",
+            "/theme.js": "theme.js",
             "/style.css": "style.css",
+            "/fonts/Geist-Variable.woff2": "fonts/Geist-Variable.woff2",
         }
         filename = files.get(path)
         if not filename:
@@ -156,7 +159,8 @@ class Handler(BaseHTTPRequestHandler):
             self._error("页面文件缺失。", 404)
             return
         mime = mimetypes.guess_type(filename)[0] or "application/octet-stream"
-        self._send(200, body, mime + "; charset=utf-8")
+        content_type = mime if mime.startswith("font/") else mime + "; charset=utf-8"
+        self._send(200, body, content_type)
 
     def do_POST(self):
         if not self._check_host():

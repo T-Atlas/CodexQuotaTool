@@ -145,6 +145,10 @@
   }
 
   function notification(message, type = "info") {
+    if (window.QuotaMotion) {
+      window.QuotaMotion.notice(message, type);
+      return;
+    }
     $("notice").textContent = message;
     $("notice").className = `notice ${type}`;
     $("notice").hidden = !message;
@@ -212,6 +216,7 @@
     if (ui.posting) return;
     ui.posting = true;
     updateControls();
+    if (path === "/api/refresh") window.QuotaMotion?.refreshState("loading");
     notification("正在处理，请稍候……");
     try {
       await api(path, payload);
@@ -246,8 +251,16 @@
       } else {
         notification(message, "");
       }
+      if (path === "/api/refresh") {
+        window.QuotaMotion?.refreshState(
+          ui.state?.usage?.error || ui.state?.credits?.error
+            ? "partial"
+            : "complete",
+        );
+      }
       return true;
     } catch (error) {
+      if (path === "/api/refresh") window.QuotaMotion?.refreshState("error");
       notification(error.message || "操作失败，请检查本地服务。", "error");
       await poll();
       return false;
@@ -287,6 +300,7 @@
         !date ||
         date.getTime() - Number(button.dataset.before) * 60000 <= Date.now();
     });
+    window.QuotaMotion?.wake();
     document.querySelectorAll("[data-operation-action]").forEach((button) => {
       button.disabled = busy;
     });
@@ -353,10 +367,7 @@
     const cards = usage.windows.map((window) => {
       const card = node("article", "card usage-card");
       const top = node("div", "card-top");
-      top.append(
-        node("h3", "", windowLabel(window)),
-        iconFrame("clock", "window-icon"),
-      );
+      top.append(node("h3", "", windowLabel(window)));
       const used =
         window.used_percent !== null &&
         window.used_percent !== undefined &&
@@ -365,18 +376,29 @@
           : null;
       const remaining =
         used === null ? null : Math.round((100 - used) * 10) / 10;
-      const number = node(
-        "div",
-        "usage-number",
-        remaining === null ? "—" : `${remaining}%`,
+      top.append(
+        node(
+          "span",
+          `badge usage-status${remaining !== null && remaining <= 10 ? " is-low" : ""}`,
+          remaining === null
+            ? "待查询"
+            : remaining <= 10
+              ? "余量较低"
+              : remaining <= 25
+                ? "留意用量"
+                : "用量正常",
+        ),
       );
-      number.append(node("span", "", "剩余"));
-      const meter = node(
-        "div",
-        `meter${remaining !== null && remaining <= 10 ? " low" : remaining !== null && remaining <= 25 ? " warn" : ""}`,
+      const number = node("div", "usage-number");
+      number.append(
+        node("strong", "", remaining === null ? "—" : String(remaining)),
+        node("span", "usage-unit", remaining === null ? "" : "%"),
+        node("span", "usage-caption", "剩余"),
       );
+      const meter = node("div", "meter");
       const fill = node("span");
-      fill.style.width = `${remaining ?? 0}%`;
+      fill.dataset.remaining = String(remaining ?? 0);
+      fill.dataset.window = window.name;
       meter.append(fill);
       meter.setAttribute("role", "meter");
       meter.setAttribute("aria-label", `${windowLabel(window)}剩余额度`);
@@ -409,6 +431,20 @@
       return card;
     });
     $("usage-cards").replaceChildren(...cards);
+    $("usage-cards")
+      .querySelectorAll(".meter > span")
+      .forEach((fill, index) => {
+        const remaining = Number(fill.dataset.remaining);
+        if (window.QuotaMotion) {
+          window.QuotaMotion.meter(
+            `${index}:${fill.dataset.window}`,
+            fill,
+            remaining,
+          );
+        } else {
+          fill.style.width = `${remaining}%`;
+        }
+      });
   }
 
   function localInput(date) {
@@ -714,6 +750,7 @@
       ui.state && previousAccount !== state.account.account_id;
     ui.state = state;
     if (changedAccount || changedSession) {
+      window.QuotaMotion?.refreshState("ready");
       if ($("confirm-dialog").open) {
         $("confirm-dialog").close();
         ui.confirm = null;
@@ -762,8 +799,9 @@
       $(`tab-${name}`).classList.toggle("active", active);
       $(`tab-${name}`).setAttribute("aria-selected", String(active));
       $(`tab-${name}`).tabIndex = active ? 0 : -1;
-      $(`panel-${name}`).hidden = !active;
+      if (!window.QuotaMotion) $(`panel-${name}`).hidden = !active;
     }
+    window.QuotaMotion?.selectTab(which);
   }
 
   function confirm(kind, operation) {
@@ -828,7 +866,7 @@
           ? "后台服务需运行，Mac 需保持唤醒。迟到超过 15 分钟、所选机会已过期或不满足执行条件时会跳过；只尝试使用这一次指定机会。"
           : "此操作成功后无法撤销。只尝试使用这一次指定机会；执行前会重新核实可用状态。";
       $("confirm-submit").textContent =
-        kind === "schedule" ? "确认预约，消耗 1 次" : "确认消耗 1 次";
+        kind === "schedule" ? "确认预约 1 次" : "确认消耗 1 次";
       ui.confirm =
         kind === "schedule"
           ? {
@@ -850,6 +888,7 @@
       ]),
     );
     $("confirm-dialog").showModal();
+    window.QuotaMotion?.reveal($("confirm-dialog"));
   }
 
   async function importAuthText(text, reportError) {
@@ -885,7 +924,7 @@
       ui.inputTouched = false;
       renderCredits(ui.state);
     } else {
-      reportError($("notice").textContent);
+      reportError($("notice").dataset.message || $("notice").textContent);
     }
     return imported;
   }
@@ -945,6 +984,7 @@
   $("paste-auth").addEventListener("click", () => {
     clearAuthInput();
     $("auth-dialog").showModal();
+    window.QuotaMotion?.reveal($("auth-dialog"));
     $("auth-json").focus();
   });
   $("auth-json").addEventListener("input", () => {
@@ -1025,6 +1065,18 @@
   document.addEventListener("visibilitychange", () => {
     if (!document.hidden) poll();
   });
+  function updateNavigation() {
+    const current = location.hash || "#overview";
+    document.querySelectorAll(".top-nav a").forEach((link) => {
+      const active =
+        link.hash === current ||
+        (current === "#main" && link.hash === "#overview");
+      if (active) link.setAttribute("aria-current", "location");
+      else link.removeAttribute("aria-current");
+    });
+  }
+  window.addEventListener("hashchange", updateNavigation);
+  updateNavigation();
   poll();
   setInterval(() => {
     if (!document.hidden) poll();

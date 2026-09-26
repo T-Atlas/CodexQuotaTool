@@ -86,9 +86,13 @@ class ServerTests(unittest.TestCase):
         self.files = {
             "index.html": b"<!doctype html><title>Quota</title>",
             "app.js": b"console.log('ready');",
+            "motion.js": b"console.log('motion');",
+            "theme.js": b"console.log('theme');",
             "style.css": b"body { color: black; }",
+            "fonts/Geist-Variable.woff2": b"wOF2-font-fixture",
         }
         for name, data in self.files.items():
+            (self.web_root / name).parent.mkdir(parents=True, exist_ok=True)
             (self.web_root / name).write_bytes(data)
         self.secret = "FAKE_SECRET_MUST_NEVER_BE_EXPOSED"
         for parent in (self.web_root, self.web_root.parent):
@@ -173,13 +177,21 @@ class ServerTests(unittest.TestCase):
             ("/", "index.html"),
             ("/index.html", "index.html"),
             ("/app.js", "app.js"),
+            ("/motion.js", "motion.js"),
+            ("/theme.js", "theme.js"),
             ("/style.css", "style.css"),
+            ("/fonts/Geist-Variable.woff2", "fonts/Geist-Variable.woff2"),
             ("/app.js?v=1", "app.js"),
         ):
             with self.subTest(route=route):
                 status, _, raw = self.request(path=route)
                 self.assertEqual(status, 200)
                 self.assertEqual(raw, self.files[filename])
+
+    def test_font_is_served_with_a_binary_font_content_type(self):
+        status, headers, _ = self.request(path="/fonts/Geist-Variable.woff2")
+        self.assertEqual(status, 200)
+        self.assertEqual(headers["Content-Type"], "font/woff2")
 
     def test_auth_files_and_path_traversal_are_not_served(self):
         for path in (
@@ -193,6 +205,8 @@ class ServerTests(unittest.TestCase):
             "/server.log",
             "/server.py",
             "/app.js/../auth.json",
+            "/fonts/../auth.json",
+            "/fonts/auth.json",
         ):
             with self.subTest(path=path):
                 self.assert_error(self.request(path=path), 404)

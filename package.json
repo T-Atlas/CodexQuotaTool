@@ -4,8 +4,8 @@
   "license": "MIT",
   "scripts": {
     "test:ui": "node tests/browser.mjs",
-    "format": "prettier --write web tests/browser.mjs",
-    "format:check": "prettier --check web tests/browser.mjs"
+    "format": "prettier --write web \"tests/*.mjs\"",
+    "format:check": "prettier --check web \"tests/*.mjs\""
   },
   "devDependencies": {
     "playwright": "1.62.1",

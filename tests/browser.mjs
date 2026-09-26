@@ -8,6 +8,8 @@ import path from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
 import { fileURLToPath } from "node:url";
 import { chromium } from "playwright";
+import { verifyMotion } from "./motion.mjs";
+import { verifyTheme } from "./theme.mjs";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const dataRoot = await mkdtemp(path.join(os.tmpdir(), "codex-quota-ui-"));
@@ -62,10 +64,11 @@ async function startServer(demo) {
 try {
   await startServer(true);
   browser = await chromium.launch({ channel: process.env.PLAYWRIGHT_CHANNEL });
-  const page = await browser.newPage({
+  const context = await browser.newContext({
     viewport: { width: 1440, height: 1050 },
     timezoneId: "Asia/Shanghai",
   });
+  const page = await context.newPage();
   page.setDefaultTimeout(15_000);
   const errors = [];
   const consumes = [];
@@ -80,6 +83,8 @@ try {
   assert.equal(await page.locator("#paste-auth").isDisabled(), true);
   assert.equal(await page.locator("#credit-count").innerText(), "2");
   assert.notEqual(await page.locator("#next-credit-expiry").innerText(), "—");
+  await verifyTheme(page, { screenshotDir: process.env.UI_SCREENSHOT_DIR });
+  await verifyMotion(page);
   await page.emulateMedia({ reducedMotion: "reduce" });
   await page.keyboard.press("Tab");
   assert.equal(
@@ -141,6 +146,13 @@ try {
 
   await page.locator("#tab-now").click();
   for (const change of ["account", "session"]) {
+    await page.locator("#refresh").click();
+    await page.waitForFunction(() =>
+      document
+        .getElementById("refresh")
+        .getAttribute("aria-label")
+        .includes("已更新"),
+    );
     await page.locator("#consume").click();
     const changed = structuredClone(await state());
     if (change === "account")
@@ -156,6 +168,11 @@ try {
       () => !document.querySelector("#confirm-dialog").open,
     );
     assert.equal(consumes.length, 0);
+    assert.equal(
+      await page.locator("#refresh").getAttribute("aria-label"),
+      "刷新用量与重置机会",
+      "A new account/session retains the previous refresh result",
+    );
     await page.unroute("**/api/state");
     await page.reload();
     await page.waitForSelector(".connection.connected");
@@ -303,9 +320,13 @@ try {
     (await page.locator("body").innerText()).includes("pasted-test-access"),
     false,
   );
-  assert.equal(
-    await page.evaluate(() => localStorage.length + sessionStorage.length),
-    0,
+  assert.deepEqual(
+    await page.evaluate(() => ({
+      local: Object.fromEntries(Object.entries(localStorage)),
+      session: Object.fromEntries(Object.entries(sessionStorage)),
+    })),
+    { local: { "codex-quota-theme": "light" }, session: {} },
+    "Only the non-sensitive appearance preference may persist in browser storage",
   );
 
   await page.locator("#paste-auth").click();
@@ -342,7 +363,7 @@ try {
   assert.equal(await page.locator("#auth-file").inputValue(), "");
   assert.deepEqual(errors, []);
   console.log(
-    "Browser checks passed: pasted and uploaded credentials, validation, scheduling, cancellation, confirmation context, polling order, demo isolation, mobile layout.",
+    "Browser checks passed: light/dark/system themes, cross-tab preferences, contrast, deterministic motion, rapid tab reversals, exclusive text states, reduced motion, failure feedback, pasted and uploaded credentials, validation, scheduling, cancellation, confirmation context, polling order, demo isolation, mobile layout.",
   );
 } finally {
   await browser?.close();

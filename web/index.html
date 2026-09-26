@@ -4,13 +4,22 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
     <meta name="color-scheme" content="light" />
-    <meta name="theme-color" content="#ffffff" />
+    <meta name="theme-color" content="#f8fafc" />
     <title>Codex 额度管家</title>
     <link
       rel="icon"
-      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='16' fill='%232563eb'/%3E%3Cpath d='m25 20-12 12 12 12m14-24 12 12-12 12' fill='none' stroke='white' stroke-width='5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E"
+      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='16' fill='%23486b9a'/%3E%3Cpath d='m25 20-12 12 12 12m14-24 12 12-12 12' fill='none' stroke='white' stroke-width='5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E"
     />
+    <script src="/theme.js"></script>
     <link rel="stylesheet" href="/style.css" />
+    <link
+      rel="preload"
+      href="/fonts/Geist-Variable.woff2"
+      as="font"
+      type="font/woff2"
+      crossorigin
+    />
+    <script src="/motion.js" defer></script>
     <script src="/app.js" defer></script>
   </head>
   <body>
@@ -64,6 +73,19 @@
       <symbol id="i-close" viewBox="0 0 24 24">
         <path d="m6 6 12 12M6 18 18 6" />
       </symbol>
+      <symbol id="i-sun" viewBox="0 0 24 24">
+        <circle cx="12" cy="12" r="4" />
+        <path
+          d="M12 2v2m0 16v2M2 12h2m16 0h2M5 5l1.5 1.5m11 11L19 19M5 19l1.5-1.5m11-11L19 5"
+        />
+      </symbol>
+      <symbol id="i-moon" viewBox="0 0 24 24">
+        <path d="M20.6 14.2A9 9 0 0 1 9.8 3.4 9 9 0 1 0 20.6 14.2Z" />
+      </symbol>
+      <symbol id="i-monitor" viewBox="0 0 24 24">
+        <rect x="3" y="4" width="18" height="13" rx="2" />
+        <path d="M8 21h8m-4-4v4" />
+      </symbol>
     </svg>
     <a class="skip-link" href="#main">跳转到主内容</a>
     <header class="topbar">
@@ -72,10 +94,7 @@
           <span class="brand-mark"
             ><svg class="icon" aria-hidden="true"><use href="#i-code" /></svg
           ></span>
-          <span class="brand-name"
-            >Codex<span>Quota</span
-            ><span class="brand-sub">本地控制台</span></span
-          >
+          <span class="brand-name">Codex<span>额度管家</span></span>
         </a>
         <nav class="top-nav" aria-label="页面导航">
           <a href="#overview">额度总览</a>
@@ -90,14 +109,33 @@
     <main id="main" class="shell" tabindex="-1">
       <header class="page-head">
         <div>
-          <p class="eyebrow">ACCOUNT OVERVIEW</p>
-          <h1>Codex 额度管家</h1>
-          <p class="intro">查看账户用量，掌握恢复时间，安排下一次重置。</p>
+          <h1>额度总览</h1>
+          <p class="intro">查看当前用量，掌握恢复时间，从容安排下一次重置。</p>
         </div>
-        <button id="refresh" class="button button-primary" disabled>
-          <svg class="icon" aria-hidden="true"><use href="#i-refresh" /></svg>
-          刷新用量与重置机会
-        </button>
+        <div class="page-actions">
+          <button
+            id="theme-toggle"
+            type="button"
+            class="button icon-button"
+            aria-label="外观：浅色，切换为深色"
+            title="外观：浅色，切换为深色"
+          >
+            <svg class="icon" aria-hidden="true"><use href="#i-sun" /></svg>
+          </button>
+          <div class="refresh-slot">
+            <button
+              id="refresh"
+              class="button button-primary"
+              aria-label="刷新用量与重置机会"
+              disabled
+            >
+              <svg class="icon" aria-hidden="true">
+                <use href="#i-refresh" />
+              </svg>
+              刷新用量与重置机会
+            </button>
+          </div>
+        </div>
       </header>
       <div id="demo-banner" class="notice info" hidden>
         离线演示 · 使用虚构账号和独立数据，体验查询、重置与预约。
@@ -157,7 +195,6 @@
       <section id="overview" aria-labelledby="usage-heading">
         <div class="section-title">
           <div>
-            <span class="section-index">01</span>
             <h2 id="usage-heading">当前额度</h2>
           </div>
           <span id="last-refresh" class="micro">导入后点击刷新</span>
@@ -181,7 +218,6 @@
       <section id="reset-management" aria-labelledby="reset-heading">
         <div class="section-title">
           <div>
-            <span class="section-index">02</span>
             <h2 id="reset-heading">重置管理</h2>
           </div>
           <span class="micro">每条预约使用一次指定机会</span>
@@ -190,7 +226,6 @@
           <section class="card credits-card" aria-labelledby="credits-heading">
             <div class="card-top">
               <div>
-                <p class="eyebrow">RESET CREDITS</p>
                 <h2 id="credits-heading">可用重置机会</h2>
               </div>
               <span class="chip">按到期时间排序</span>
@@ -229,7 +264,6 @@
           <section class="card action-card" aria-labelledby="action-heading">
             <div class="card-top">
               <div>
-                <p class="eyebrow">RESET ACTION</p>
                 <h2 id="action-heading">安排一次重置</h2>
               </div>
               <span class="window-icon"
@@ -337,7 +371,6 @@
       >
         <div class="card-top">
           <div>
-            <p class="eyebrow">ACTIVITY</p>
             <h2 id="history-heading">操作记录</h2>
           </div>
           <span class="micro">本工具的执行记录</span>
@@ -365,7 +398,6 @@
           ><svg class="icon" aria-hidden="true"><use href="#i-paste" /></svg
         ></span>
         <div>
-          <p class="eyebrow">IMPORT CREDENTIALS</p>
           <h2 id="auth-dialog-title">粘贴 auth.json</h2>
         </div>
       </div>
@@ -410,7 +442,6 @@
             ><svg class="icon" aria-hidden="true"><use href="#i-bolt" /></svg
           ></span>
           <div>
-            <p class="eyebrow">CONFIRM RESET</p>
             <h2 id="confirm-title">确认操作</h2>
           </div>
         </div>
