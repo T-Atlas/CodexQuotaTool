@@ -11,7 +11,16 @@ schedule a one-time redemption.
 - Manage independent schedules and inspect their operation records.
 - Try the workflow with an isolated, offline demo account.
 
-![Dashboard with demo usage, reset credits, and a scheduled reset](docs/dashboard.png)
+![Dashboard with demo usage and reset credits](docs/dashboard.png)
+
+[Dark mode preview](docs/dashboard-dark.png)
+
+The interface uses generous whitespace, light section dividers, a muted blue
+accent, and locally served Geist typography. Light mode is the default; the
+appearance button beside the page title cycles through light, dark, and system
+modes and remembers the choice locally. The refresh button morphs in place
+between querying, completion, and failure states. Spring-driven tabs and quota
+meters respect the system's reduced-motion preference.
 
 ## Quick start
 
@@ -161,6 +170,15 @@ Python tests use mock upstream responses and controllable clocks. The checks cov
 scheduling, redemption recovery, credential updates, local HTTP access, and
 dashboard interactions.
 
+Animations are rendered by `QuotaMotion.seek(t)` in `web/motion.js`, with `t` in
+seconds on the `performance.now() / 1000` clock. Input records timestamped target
+changes; closed-form spring responses are summed to compute each frame. Browser
+checks cover out-of-order seeking, rapid reversals, mutually exclusive text
+states, failure feedback, reduced motion, saved themes, cross-tab synchronization,
+and text contrast. Business state polling runs independently of the animation
+clock. Set `UI_SCREENSHOT_DIR=/tmp/quota-ui` when running browser tests to export
+light, dark, and mobile screenshots.
+
 Contributions should contain a focused change, regression tests for behavior
 changes, and matching updates to both READMEs. Run `ruff format .` and
 `npm run format` when editing Python or frontend files.
@@ -168,3 +186,6 @@ changes, and matching updates to both READMEs. Run `ruff format .` and
 ## License
 
 [MIT](LICENSE), copyright 2026 Lian Junhong.
+
+The bundled [Geist font](https://github.com/vercel/geist-font) is distributed under
+the [SIL Open Font License 1.1](web/fonts/OFL.txt).

@@ -9,7 +9,11 @@
 - 分别管理多条预约，查看执行记录。
 - 使用隔离的离线演示账号体验完整流程。
 
-![演示账号的用量、重置机会和预约任务](docs/dashboard.png)
+![演示账号的用量与重置机会](docs/dashboard.png)
+
+[深色预览](docs/dashboard-dark.png)
+
+界面采用宽松留白、轻分区、雾蓝强调色和本地加载的 Geist 字体。默认使用浅色，标题右侧的外观按钮依次切换浅色、深色和跟随系统，并在本机记住选择。刷新按钮在原位切换查询、完成与失败状态；标签指示器和额度条使用弹簧动效，并遵循系统的「减少动态效果」设置。
 
 ## 快速开始
 
@@ -119,8 +123,12 @@ npm run test:ui
 
 本机已安装 Google Chrome 时，可以运行 `PLAYWRIGHT_CHANNEL=chrome npm run test:ui`。浏览器测试会启动临时演示实例，结束后删除测试数据。Python 测试使用模拟上游响应和可控时钟，覆盖预约、重置恢复、凭证更新、本地 HTTP 访问和网页交互。
 
+动效由 `web/motion.js` 的 `QuotaMotion.seek(t)` 渲染，`t` 使用与 `performance.now() / 1000` 相同的秒数基准。点击仅记录带时间戳的目标变化，渲染由闭式弹簧响应叠加计算。浏览器测试包含乱序 seek、快速切换、文字互斥显示、失败反馈、减少动态效果、主题记忆、跨标签页同步和文字对比度检查。业务状态轮询独立于动画时钟。运行测试时设置 `UI_SCREENSHOT_DIR=/tmp/quota-ui` 可导出浅色、深色与手机布局截图。
+
 提交贡献时，请围绕一个具体改动组织代码，为行为变化补充回归测试，并同步更新两份 README。修改 Python 或前端代码后，分别运行 `ruff format .` 和 `npm run format`。
 
 ## 许可证
 
 [MIT](LICENSE)，版权归 2026 Lian Junhong 所有。
+
+随项目提供的 [Geist 字体](https://github.com/vercel/geist-font) 使用 [SIL Open Font License 1.1](web/fonts/OFL.txt)。
