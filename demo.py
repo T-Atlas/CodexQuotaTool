@@ -6,12 +6,18 @@ import threading
 import time
 from pathlib import Path
 
+from accounts import AccountManager, _private_json
 from core import AppError, Engine, _atomic_json, _iso, _timestamp
 
 DEMO_AUTH = {
     "access_token": "offline-demo-token-not-a-credential",
     "account_id": "offline-demo-account",
     "label": "离线演示账号（模拟数据）",
+}
+DEMO_TEAM_AUTH = {
+    "access_token": "offline-demo-team-token-not-a-credential",
+    "account_id": "offline-demo-team-account",
+    "label": "团队演示账号（模拟数据）",
 }
 
 
@@ -29,9 +35,10 @@ def demo_root(application_root):
 class DemoTransport:
     """Simulate only known endpoints; persist credit status and redemption IDs."""
 
-    def __init__(self, root, clock=time.time):
+    def __init__(self, root, clock=time.time, *, auth=None, usage=(96, 92)):
         self.path = Path(root) / "demo-upstream.json"
         self.clock = clock
+        self.auth = copy.deepcopy(auth or DEMO_AUTH)
         self.lock = threading.RLock()
         if self.path.is_symlink():
             raise AppError("演示状态不能是符号链接。", 500)
@@ -57,12 +64,12 @@ class DemoTransport:
                 "format": "offline-demo-v1",
                 "rate_limit": {
                     "primary_window": {
-                        "used_percent": 96,
+                        "used_percent": usage[0],
                         "limit_window_seconds": 18000,
                         "reset_at": now + 3600,
                     },
                     "secondary_window": {
-                        "used_percent": 92,
+                        "used_percent": usage[1],
                         "limit_window_seconds": 604800,
                         "reset_at": now + 86400,
                     },
@@ -95,7 +102,10 @@ class DemoTransport:
 
     def __call__(self, method, path, headers, body=None):
         with self.lock:
-            if headers.get("Authorization") != "Bearer " + DEMO_AUTH["access_token"]:
+            if (
+                headers.get("Authorization") != "Bearer " + self.auth["access_token"]
+                or headers.get("Chatgpt-Account-Id") != self.auth["account_id"]
+            ):
                 return 401, {"error": {"code": "demo_only"}}
             if method == "GET" and path == "/usage":
                 return 200, {
@@ -161,3 +171,45 @@ def build_demo_engine(application_root, clock=time.time):
     engine = Engine(root, transport=transport, clock=clock)
     engine.refresh()
     return engine
+
+
+def build_demo_manager(application_root, clock=time.time):
+    root = demo_root(application_root)
+    root.mkdir(parents=True, exist_ok=True, mode=0o700)
+    _atomic_json(root / "auth.json", DEMO_AUTH)
+    credentials = {doc["account_id"]: doc for doc in (DEMO_AUTH, DEMO_TEAM_AUTH)}
+
+    def transport(entry, directory):
+        auth = credentials.get(entry["account_id"])
+        if auth is None:
+            raise AppError("演示模式只接受固定的模拟账号。", 403)
+        # Never open a potentially replaced real credential in the demo store.
+        _atomic_json(directory / "auth.json", auth)
+        legacy = root / "demo-upstream.json"
+        if (
+            auth == DEMO_AUTH
+            and legacy.exists()
+            and not (directory / "demo-upstream.json").exists()
+        ):
+            previous, _ = _private_json(legacy)
+            _atomic_json(directory / "demo-upstream.json", previous)
+        return DemoTransport(
+            directory,
+            clock,
+            auth=auth,
+            usage=(96, 92) if auth == DEMO_AUTH else (28, 46),
+        )
+
+    manager = AccountManager(root, clock=clock, transport_factory=transport)
+    try:
+        before = manager.state()
+        ids = {item["account"]["account_id"]: item["id"] for item in before["profiles"]}
+        for owner, auth in credentials.items():
+            if owner not in ids:
+                ids[owner] = manager.import_auth(auth)
+        manager.select(before["active_profile_id"] or ids[DEMO_AUTH["account_id"]])
+        manager.refresh_all()
+        return manager
+    except Exception:
+        manager.close()
+        raise

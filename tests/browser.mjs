@@ -10,6 +10,7 @@ import { fileURLToPath } from "node:url";
 import { chromium } from "playwright";
 import { verifyMotion } from "./motion.mjs";
 import { verifyTheme } from "./theme.mjs";
+import { verifyDemoAccounts, verifySavedAccounts } from "./accounts.mjs";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const dataRoot = await mkdtemp(path.join(os.tmpdir(), "codex-quota-ui-"));
@@ -115,6 +116,8 @@ try {
   );
   await page.locator(".brand").click();
 
+  await verifyDemoAccounts(page, base);
+
   await page.locator("#tab-schedule").click();
   await page.locator("#schedule").click();
   await page.locator("#confirm-submit").click();
@@ -158,7 +161,7 @@ try {
     if (change === "account")
       changed.account.account_id = "another-demo-account";
     else changed.csrf = "another-local-session";
-    await page.route("**/api/state", (route) =>
+    await page.route("**/api/state*", (route) =>
       route.fulfill({ json: { ok: true, state: changed } }),
     );
     await page.evaluate(() =>
@@ -173,7 +176,7 @@ try {
       "刷新用量与重置机会",
       "A new account/session retains the previous refresh result",
     );
-    await page.unroute("**/api/state");
+    await page.unroute("**/api/state*");
     await page.reload();
     await page.waitForSelector(".connection.connected");
   }
@@ -185,7 +188,7 @@ try {
   const capturedRequest = new Promise((resolve) => {
     captured = resolve;
   });
-  await page.route("**/api/state", async (route) => {
+  await page.route("**/api/state*", async (route) => {
     captured();
     await new Promise((resolve) => {
       release = resolve;
@@ -199,7 +202,7 @@ try {
   const refreshResponse = page.waitForResponse("**/api/refresh");
   await page.locator("#refresh").click();
   await refreshResponse;
-  const staleResponse = page.waitForResponse("**/api/state");
+  const staleResponse = page.waitForResponse("**/api/state*");
   release();
   await (await staleResponse).finished();
   await page.evaluate(
@@ -209,7 +212,7 @@ try {
       ),
   );
   assert.equal(await page.locator("#credit-count").innerText(), "1");
-  await page.unroute("**/api/state");
+  await page.unroute("**/api/state*");
 
   await page.locator("#consume").click();
   await page.locator("#confirm-submit").click();
@@ -300,6 +303,17 @@ try {
   const pasted = {
     tokens: {
       access_token: "pasted-test-access",
+      id_token:
+        "test." +
+        Buffer.from(
+          JSON.stringify({
+            "https://api.openai.com/auth": {
+              chatgpt_account_id: "pasted-test-account",
+              chatgpt_user_id: "test-pasted-user",
+            },
+          }),
+        ).toString("base64url") +
+        ".test",
       refresh_token: "pasted-test-refresh",
       account_id: "pasted-test-account",
     },
@@ -313,7 +327,18 @@ try {
   assert.equal(await page.locator("#auth-json").inputValue(), "");
   assert.equal((await state()).account.account_id, "pasted-test-account");
   assert.deepEqual(
-    JSON.parse(await readFile(path.join(dataRoot, "auth.json"), "utf8")),
+    JSON.parse(
+      await readFile(
+        path.join(
+          dataRoot,
+          "data",
+          "accounts",
+          (await state()).active_profile_id,
+          "auth.json",
+        ),
+        "utf8",
+      ),
+    ),
     pasted,
   );
   assert.equal(
@@ -356,14 +381,26 @@ try {
   );
   assert.equal((await state()).account.account_id, "uploaded-test-account");
   assert.deepEqual(
-    JSON.parse(await readFile(path.join(dataRoot, "auth.json"), "utf8")),
+    JSON.parse(
+      await readFile(
+        path.join(
+          dataRoot,
+          "data",
+          "accounts",
+          (await state()).active_profile_id,
+          "auth.json",
+        ),
+        "utf8",
+      ),
+    ),
     uploaded,
   );
   assert.equal(imports.length, 3);
   assert.equal(await page.locator("#auth-file").inputValue(), "");
+  await verifySavedAccounts(page, base, dataRoot, pasted);
   assert.deepEqual(errors, []);
   console.log(
-    "Browser checks passed: light/dark/system themes, cross-tab preferences, contrast, deterministic motion, rapid tab reversals, exclusive text states, reduced motion, failure feedback, pasted and uploaded credentials, validation, scheduling, cancellation, confirmation context, polling order, demo isolation, mobile layout.",
+    "Browser checks passed: multi-account switching, parallel status, per-tab selection, batch import, credential updates, rename/removal, account-bound actions, light/dark/system themes, contrast, deterministic motion, credential privacy, scheduling, cancellation, polling order, and mobile layout.",
   );
 } finally {
   await browser?.close();

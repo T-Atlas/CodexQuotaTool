@@ -13,6 +13,8 @@
     fingerprints: {},
     inputTouched: false,
     requestEpoch: 0,
+    refreshingAll: false,
+    importingFiles: false,
   };
   const pendingStatuses = new Set(["scheduled", "running"]);
   const statusLabels = {
@@ -29,6 +31,13 @@
     nothing_to_reset: "无需重置",
     not_sent: "未提交",
   };
+  const accountsView = window.createAccountsView?.({
+    post,
+    node,
+    iconFrame,
+    shortId,
+    time,
+  });
 
   function node(tag, className, text) {
     const el = document.createElement(tag);
@@ -182,7 +191,17 @@
         "Content-Type": "application/json",
         "X-Local-Token": ui.state.csrf,
       };
-      options.body = JSON.stringify(payload);
+      options.body = JSON.stringify(
+        Array.isArray(ui.state.profiles)
+          ? {
+              profile_id: ui.state.active_profile_id,
+              view_profile_id: ui.state.active_profile_id,
+              ...payload,
+            }
+          : payload,
+      );
+    } else if (path === "/api/state" && ui.state?.active_profile_id) {
+      path += `?profile_id=${encodeURIComponent(ui.state.active_profile_id)}`;
     }
     const response = await fetch(path, options);
     let result;
@@ -192,6 +211,7 @@
       throw new Error("本地服务返回了无法读取的响应，请检查启动终端。");
     }
     if (payload === undefined && epoch !== ui.requestEpoch) return result;
+    if (payload !== undefined) ui.requestEpoch += 1;
     if (result.state) render(result.state);
     if (!response.ok || result.ok === false)
       throw new Error(result.error || `请求失败（HTTP ${response.status}）`);
@@ -201,7 +221,7 @@
 
   let polling = false;
   async function poll() {
-    if (polling || ui.posting) return;
+    if (polling || (ui.posting && !ui.refreshingAll)) return;
     polling = true;
     try {
       await api("/api/state");
@@ -214,12 +234,22 @@
 
   async function post(path, payload, message) {
     if (ui.posting) return;
+    const targetId = payload.profile_id || ui.state?.active_profile_id;
+    const currentRefresh =
+      path === "/api/refresh" && targetId === ui.state?.active_profile_id;
     ui.posting = true;
+    ui.refreshingAll = path === "/api/refresh/all";
     updateControls();
-    if (path === "/api/refresh") window.QuotaMotion?.refreshState("loading");
+    if (currentRefresh) window.QuotaMotion?.refreshState("loading");
     notification("正在处理，请稍候……");
     try {
-      await api(path, payload);
+      const result = await api(path, payload);
+      const profile = ui.state?.profiles?.find((item) => item.id === targetId);
+      const queryError = profile
+        ? profile.account.error ||
+          profile.usage?.error ||
+          profile.credits?.error
+        : ui.state?.usage?.error || ui.state?.credits?.error;
       const operation = [
         "/api/consume",
         "/api/retry",
@@ -231,7 +261,15 @@
               : item.credit_id === payload.credit_id,
           )
         : null;
-      if (operation?.status === "uncertain") {
+      if (result.refresh_summary) {
+        const summary = result.refresh_summary;
+        notification(
+          `已刷新 ${summary.succeeded} / ${summary.total} 个账号${summary.failed ? `，${summary.failed} 个账号需要处理，请查看各账号提示。` : "。"}`,
+          summary.failed ? "info" : "",
+        );
+      } else if (path === "/api/refresh" && queryError) {
+        notification(queryError, "error");
+      } else if (operation?.status === "uncertain") {
         notification(
           "请求结果待核实。请在操作记录中先核实结果；如需重试，将沿用原请求 ID。",
           "info",
@@ -251,38 +289,39 @@
       } else {
         notification(message, "");
       }
-      if (path === "/api/refresh") {
-        window.QuotaMotion?.refreshState(
-          ui.state?.usage?.error || ui.state?.credits?.error
-            ? "partial"
-            : "complete",
-        );
+      if (currentRefresh) {
+        window.QuotaMotion?.refreshState(queryError ? "partial" : "complete");
       }
       return true;
     } catch (error) {
-      if (path === "/api/refresh") window.QuotaMotion?.refreshState("error");
+      if (currentRefresh) window.QuotaMotion?.refreshState("error");
       notification(error.message || "操作失败，请检查本地服务。", "error");
       await poll();
       return false;
     } finally {
       ui.posting = false;
+      ui.refreshingAll = false;
       updateControls();
     }
   }
 
   function updateControls() {
-    const busy = ui.posting || Boolean(ui.state?.busy) || !ui.connection;
-    const loaded = Boolean(ui.state?.account?.loaded);
+    const globalBusy = ui.posting || ui.importingFiles || !ui.connection;
+    const busy = globalBusy || Boolean(ui.state?.busy);
+    const loaded =
+      Boolean(ui.state?.account?.loaded) && !ui.state?.account?.error;
     const selected = selectedCredit();
     const blocked = ambiguousOperation();
     $("refresh").disabled = busy || !loaded;
-    $("auth-file").disabled = busy || Boolean(ui.state?.demo);
-    $("paste-auth").disabled = busy || Boolean(ui.state?.demo);
+    $("auth-file").disabled = globalBusy || Boolean(ui.state?.demo);
+    $("auth-file").multiple = Array.isArray(ui.state?.profiles);
+    $("paste-auth").disabled = globalBusy || Boolean(ui.state?.demo);
     $("auth-submit").disabled =
-      busy || Boolean(ui.state?.demo) || !$("auth-json").value.trim();
+      globalBusy || Boolean(ui.state?.demo) || !$("auth-json").value.trim();
     $("auth-json").disabled = ui.posting;
     $("auth-cancel").disabled = ui.posting;
-    $("reload-auth").disabled = busy || Boolean(ui.state?.demo);
+    $("reload-auth").disabled = globalBusy || Boolean(ui.state?.demo);
+    accountsView?.controls(globalBusy);
     $("consume").disabled =
       busy || !selected || blocked || activeSchedule(selected?.id);
     $("schedule").disabled =
@@ -309,12 +348,14 @@
   function renderAccount(state) {
     const account = state.account || {};
     $("account-heading").textContent = account.loaded
-      ? "Codex 凭证已就绪"
+      ? state.profiles
+        ? "当前操作账号"
+        : "Codex 凭证已就绪"
       : "连接你的 Codex 凭证";
     $("account-badge").textContent = account.loaded ? "已导入" : "未导入";
     $("account-badge").className = account.loaded ? "badge" : "badge neutral";
     $("account-label").textContent = account.loaded
-      ? account.label || "已载入 auth.json"
+      ? state.profile_name || account.label || "已载入 auth.json"
       : "将 auth.json 放进工具文件夹，或在这里导入。";
     const meta = [];
     if (account.account_id) meta.push(`账号 ${shortId(account.account_id)}`);
@@ -322,6 +363,7 @@
       meta.push(`访问令牌到期 ${fullTime(account.expires_at)}`);
     $("account-meta").textContent =
       account.error ||
+      state.import_error ||
       (meta.length
         ? meta.join(" · ")
         : "凭证由本机服务保存，导入后显示账号摘要。");
@@ -747,7 +789,9 @@
     const previousAccount = ui.state?.account?.account_id;
     const changedSession = ui.state && ui.state.csrf !== state.csrf;
     const changedAccount =
-      ui.state && previousAccount !== state.account.account_id;
+      ui.state &&
+      (previousAccount !== state.account.account_id ||
+        ui.state.active_profile_id !== state.active_profile_id);
     ui.state = state;
     if (changedAccount || changedSession) {
       window.QuotaMotion?.refreshState("ready");
@@ -775,6 +819,7 @@
       }
     }
     renderAccount(state);
+    accountsView?.render(state);
     const minute = Math.floor(Date.now() / 60000);
     for (const [key, renderFn] of [
       ["usage", renderUsage],
@@ -881,6 +926,8 @@
               message: "本次请求处理已结束，请以操作记录中的状态为准。",
             };
     }
+    ui.confirm.payload.profile_id = ui.state.active_profile_id;
+    ui.confirm.payload.view_profile_id = ui.state.active_profile_id;
     $("confirm-details").replaceChildren(
       ...details.flatMap(([label, value]) => [
         node("dt", "", label),
@@ -892,7 +939,8 @@
   }
 
   async function importAuthText(text, reportError) {
-    if (ui.posting || $("auth-file").disabled) return false;
+    if (ui.posting || (!ui.importingFiles && $("auth-file").disabled))
+      return false;
     let auth;
     try {
       if (!text.trim()) throw new Error("请提供 auth.json 的完整 JSON。");
@@ -917,7 +965,7 @@
     const imported = await post(
       "/api/auth",
       { auth },
-      "凭证已导入。点击“刷新用量与重置机会”获取最新状态。",
+      "账号凭证已添加或更新。刷新后可查看最新额度。",
     );
     auth = null;
     if (imported) {
@@ -929,19 +977,49 @@
     return imported;
   }
 
-  async function importFile(file) {
-    if (!file || ui.posting || $("auth-file").disabled) return;
-    const reportError = (message) => notification(message, "error");
+  async function importFile(file, reportError) {
+    if (!file || ui.posting) return false;
     try {
       if (file.size > MAX_AUTH_BYTES) {
         reportError("凭证内容过大，请使用小于 1 MB 的 JSON。");
-        return;
+        return false;
       }
-      await importAuthText(await file.text(), reportError);
+      return await importAuthText(await file.text(), reportError);
     } catch {
       reportError("文件读取失败，请重新选择 auth.json。");
+      return false;
     } finally {
       $("auth-file").value = "";
+    }
+  }
+
+  async function importFiles(files) {
+    if (!files.length || $("auth-file").disabled) return;
+    if (files.length > 1 && !Array.isArray(ui.state?.profiles)) {
+      notification("请先重启本地服务，再使用多账号导入。", "error");
+      return;
+    }
+    ui.importingFiles = true;
+    updateControls();
+    let imported = 0;
+    const failures = [];
+    try {
+      for (const file of files) {
+        if (
+          await importFile(file, (message) =>
+            failures.push(`${file.name}: ${message}`),
+          )
+        )
+          imported += 1;
+      }
+      notification(
+        `已导入 ${imported} 个文件${failures.length ? `；${failures.length} 个失败。${failures.slice(0, 3).join("；")}` : "，账号凭证已添加或更新。"}`,
+        failures.length ? "error" : "",
+      );
+    } finally {
+      ui.importingFiles = false;
+      $("auth-file").value = "";
+      updateControls();
     }
   }
 
@@ -979,7 +1057,7 @@
     ui.inputTouched = true;
   });
   $("auth-file").addEventListener("change", (event) =>
-    importFile(event.target.files[0]),
+    importFiles([...event.target.files]),
   );
   $("paste-auth").addEventListener("click", () => {
     clearAuthInput();
@@ -1060,7 +1138,7 @@
   );
   dropZone.addEventListener("drop", (event) => {
     if (event.dataTransfer?.files.length)
-      importFile(event.dataTransfer.files[0]);
+      importFiles([...event.dataTransfer.files]);
   });
   document.addEventListener("visibilitychange", () => {
     if (!document.hidden) poll();

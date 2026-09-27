@@ -65,7 +65,10 @@ class DemoTests(unittest.TestCase):
         request_id = state["operations"][0]["id"]
         restored = self.create()
         self.assertEqual(restored.state()["credits"]["available_count"], 1)
-        headers = {"Authorization": "Bearer " + DEMO_AUTH["access_token"]}
+        headers = {
+            "Authorization": "Bearer " + DEMO_AUTH["access_token"],
+            "Chatgpt-Account-Id": DEMO_AUTH["account_id"],
+        }
         status, response = restored.transport(
             "POST",
             "/rate-limit-reset-credits/consume",

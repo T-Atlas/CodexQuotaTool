@@ -86,6 +86,7 @@ class ServerTests(unittest.TestCase):
         self.files = {
             "index.html": b"<!doctype html><title>Quota</title>",
             "app.js": b"console.log('ready');",
+            "accounts.js": b"console.log('accounts');",
             "motion.js": b"console.log('motion');",
             "theme.js": b"console.log('theme');",
             "style.css": b"body { color: black; }",
@@ -177,6 +178,7 @@ class ServerTests(unittest.TestCase):
             ("/", "index.html"),
             ("/index.html", "index.html"),
             ("/app.js", "app.js"),
+            ("/accounts.js", "accounts.js"),
             ("/motion.js", "motion.js"),
             ("/theme.js", "theme.js"),
             ("/style.css", "style.css"),

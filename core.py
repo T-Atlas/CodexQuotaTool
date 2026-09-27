@@ -1,4 +1,4 @@
-"""Private, single-account Codex quota queries and durable one-shot redemption."""
+"""Private per-account Codex quota queries and durable one-shot redemption."""
 
 from __future__ import annotations
 
@@ -112,7 +112,7 @@ def _atomic_json(path: Path, document, expected_stamp=None):
                     unchanged = False
                 if not unchanged:
                     raise AppError(
-                        "auth.json 在保存期间发生变化，已保留外部凭证，请重新载入。",
+                        f"{path.name} 在保存期间发生变化，已保留外部文件，请重新载入。",
                         409,
                     )
             os.replace(name, path)
@@ -171,6 +171,42 @@ def _normalize_auth(document):
         raise AppError("凭证中的 account_id 与令牌账号不一致，已停止导入。")
     profile = id_claims.get("https://api.openai.com/profile") or {}
     profile = profile if isinstance(profile, dict) else {}
+    principal_id = None
+    for keys, prefix in (
+        (["chatgpt_user_id", "user_id"], "user"),
+        (["chatgpt_account_user_id"], "member"),
+    ):
+        values = []
+        for scope in scopes:
+            if isinstance(scope, dict):
+                value = next(
+                    (scope[key] for key in keys if scope.get(key) is not None), None
+                )
+                if value is not None:
+                    values.append(value)
+        if values:
+            if (
+                any(
+                    not isinstance(value, str)
+                    or not value.strip()
+                    or len(value) > 480
+                    or any(ord(c) < 32 or ord(c) == 127 for c in value)
+                    for value in values
+                )
+                or len(set(values)) != 1
+            ):
+                raise AppError("凭证中的登录身份不一致或无效，已停止导入。")
+            principal_id = f"{prefix}:{values[0].strip()}"
+            break
+    if principal_id is None:
+        subject = access_claims.get("sub") or id_claims.get("sub")
+        if (
+            isinstance(subject, str)
+            and subject.strip()
+            and len(subject) <= 480
+            and not any(ord(c) < 32 or ord(c) == 127 for c in subject)
+        ):
+            principal_id = "subject:" + subject.strip()
     label = (
         document.get("email")
         or id_claims.get("email")
@@ -191,6 +227,7 @@ def _normalize_auth(document):
         "access_token": access.strip(),
         "refresh_token": refresh_token,
         "account_id": account_id.strip(),
+        "principal_id": principal_id,
         "label": str(label)[:160],
         "expires_at": _iso(expiry),
     }
@@ -262,11 +299,21 @@ def curl_transport(method, path, headers, body):
 class Engine:
     """Serializes mutations while allowing read-only state snapshots during I/O."""
 
-    def __init__(self, root: Path, transport=None, clock=time.time):
+    def __init__(
+        self,
+        root: Path,
+        transport=None,
+        clock=time.time,
+        *,
+        account_id=None,
+        principal_id=None,
+    ):
         self.root = Path(root)
         self.root.mkdir(parents=True, exist_ok=True, mode=0o700)
         self.transport = transport or curl_transport
         self.clock = clock
+        self._bound_account_id = account_id
+        self._bound_principal_id = principal_id
         self._lock = threading.RLock()
         self._action_lock = threading.Lock()
         self._busy = False
@@ -537,7 +584,14 @@ class Engine:
         ]
         return {item.get("_account_id") for item in schedules + operations}
 
-    def _check_account_switch(self, account_id):
+    def _check_account_switch(self, account_id, principal_id=None):
+        if self._bound_account_id is not None and account_id != self._bound_account_id:
+            raise AppError("凭证与此账号不匹配，请通过添加账号导入其他凭证。", 409)
+        if (
+            self._bound_principal_id is not None
+            and principal_id != self._bound_principal_id
+        ):
+            raise AppError("凭证的登录身份与此账号不匹配，请添加为独立账号。", 409)
         if self._active_accounts() - {account_id}:
             raise AppError(
                 "其他账号仍有预约或未确认的兑换，请恢复该账号凭证，取消预约或核对兑换后再更换账号。",
@@ -565,13 +619,17 @@ class Engine:
                     )
                 document = json.loads(raw)
                 normalized = _normalize_auth(document)
-                self._check_account_switch(normalized["account_id"])
+                self._check_account_switch(
+                    normalized["account_id"], normalized["principal_id"]
+                )
                 os.fchmod(handle.fileno(), 0o600)
                 stamp = _file_stamp(os.fstat(handle.fileno()))
             if self._disk_auth_stamp() != stamp:
                 raise AppError("auth.json 在读取期间被替换，请重新载入。")
             self._auth_document = document
             self._auth = normalized
+            if self._bound_account_id is not None and self._bound_principal_id is None:
+                self._bound_principal_id = normalized["principal_id"]
             self._auth_stamp = stamp
             self._auth_error = None
         except FileNotFoundError:
@@ -624,7 +682,9 @@ class Engine:
         with self._lock:
             if not self._busy:
                 self._sync_auth()
-            account_id = self._auth["account_id"] if self._auth else None
+            account_id = (
+                self._auth["account_id"] if self._auth else self._bound_account_id
+            )
             account = (
                 {
                     "loaded": True,
@@ -636,7 +696,7 @@ class Engine:
                 else {
                     "loaded": False,
                     "label": "未导入凭证",
-                    "account_id": "",
+                    "account_id": account_id or "",
                     "expires_at": None,
                 }
             )
@@ -677,10 +737,33 @@ class Engine:
                 "busy": self._busy,
             }
 
+    def has_pending_work(self):
+        """Also protect pending records when credentials are missing or invalid."""
+        with self._lock:
+            return bool(self._active_accounts())
+
+    def matches_credential(self, normalized):
+        with self._lock:
+            if not self._auth or self._auth["account_id"] != normalized["account_id"]:
+                return False
+            if self._auth["principal_id"] and normalized["principal_id"]:
+                return self._auth["principal_id"] == normalized["principal_id"]
+            return self._auth["access_token"] == normalized["access_token"]
+
+    def has_due_schedules(self):
+        with self._lock:
+            return any(
+                item.get("status") == "scheduled"
+                and self.clock() >= _timestamp(item["run_at"])
+                for item in self._data["schedules"]
+            )
+
     def import_auth(self, document):
         normalized = _normalize_auth(document)
         with self._action():
-            self._check_account_switch(normalized["account_id"])
+            self._check_account_switch(
+                normalized["account_id"], normalized["principal_id"]
+            )
             self._persist_auth(document, normalized)
             self._save()
         return self.state()
@@ -700,6 +783,8 @@ class Engine:
             ) from None
         with self._lock:
             self._auth = normalized
+            if self._bound_account_id is not None and self._bound_principal_id is None:
+                self._bound_principal_id = normalized["principal_id"]
             self._auth_document = copy.deepcopy(document)
             self._auth_error = None
             self._auth_stamp = stamp
@@ -790,6 +875,7 @@ class Engine:
             raise AppError("续期响应的凭证格式或账号无效，已停止操作。", 502) from None
         if normalized["account_id"] != auth["account_id"]:
             raise AppError("续期响应的账号与当前账号不一致，已停止操作。", 502)
+        self._check_account_switch(normalized["account_id"], normalized["principal_id"])
         # Rotated tokens must reach durable storage before any request uses them.
         self._check_auth_file_unchanged()
         self._persist_auth(document, normalized, expected_stamp=self._auth_stamp)
@@ -1268,7 +1354,9 @@ class Engine:
 
     def cancel_schedule(self, schedule_id):
         with self._action():
-            account_id = self._auth["account_id"] if self._auth else None
+            account_id = (
+                self._auth["account_id"] if self._auth else self._bound_account_id
+            )
             candidates = [
                 item
                 for item in self._data["schedules"]
