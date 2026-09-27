@@ -26,7 +26,9 @@ cd CodexQuotaTool
 ./run.sh start
 ```
 
-启动器会打开网页并打印地址，从 `8765` 开始选择空闲的本机端口。macOS 也可以双击 `启动.command`。
+启动器会打开网页并打印地址，从 `8765` 开始选择空闲的本机端口。macOS 也可以双击 `start.command`。
+
+也可以运行 `./start.sh`（等同于 `./run.sh start`），并传入启动参数，例如 `./start.sh --no-open` 或 `./start.sh --demo`。
 
 在页面选择一个或多个凭证 JSON 文件，或点击「粘贴 JSON」后选择「解析并导入」。点击「刷新全部」查询所有账号，或选择一个账号后查看其额度、重置机会和操作记录。也可以把 `auth.json` 放进项目目录，再点击「读取本地文件」明确导入。网页当前使用中文界面。
 
@@ -122,7 +124,8 @@ ruff check .
 ruff format --check .
 python -m unittest discover -s tests -v
 sh -n run.sh
-sh -n 启动.command
+sh -n start.sh
+sh -n start.command
 ```
 
 前端格式检查和浏览器测试使用 Node.js 24+：

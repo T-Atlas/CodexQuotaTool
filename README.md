@@ -36,7 +36,10 @@ cd CodexQuotaTool
 
 The launcher opens the dashboard and prints its URL. It searches for an available
 loopback port starting at `8765`. On macOS, you can also double-click
-`启动.command`.
+`start.command`.
+
+You can also run `./start.sh` (equivalent to `./run.sh start`), with optional
+startup flags such as `./start.sh --no-open` or `./start.sh --demo`.
 
 Select one or more credential JSON files, or click **粘贴 JSON**, paste the
 contents, and choose **解析并导入**. Use **刷新全部** to query all accounts, or
@@ -183,7 +186,8 @@ ruff check .
 ruff format --check .
 python -m unittest discover -s tests -v
 sh -n run.sh
-sh -n 启动.command
+sh -n start.sh
+sh -n start.command
 ```
 
 For frontend formatting and browser tests, use Node.js 24+:
