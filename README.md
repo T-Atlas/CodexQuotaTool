@@ -2,13 +2,14 @@
 
 [中文](README_CN.md) · English
 
-A local dashboard for Codex account usage and reset credits. Import your OAuth
-`auth.json` to view quota windows, check credit expiry dates, redeem a credit, or
-schedule a one-time redemption.
+A local dashboard for multiple Codex accounts and their reset credits. Import
+OAuth credentials to compare account status, switch the operation account,
+redeem a credit, or schedule a one-time redemption.
 
 - View remaining quota and each window's reset time.
 - Use a specific reset credit immediately or at a scheduled time.
 - Manage independent schedules and inspect their operation records.
+- Batch-import, switch, rename, and remove accounts; refresh one or all accounts.
 - Try the workflow with an isolated, offline demo account.
 
 ![Dashboard with demo usage and reset credits](docs/dashboard.png)
@@ -37,10 +38,11 @@ The launcher opens the dashboard and prints its URL. It searches for an availabl
 loopback port starting at `8765`. On macOS, you can also double-click
 `启动.command`.
 
-Upload `auth.json`, or click **粘贴 JSON**, paste its contents, and select
-**解析并导入**. Then click **刷新用量与重置机会** to query your account. You can also
-place the file in the project directory; the service reads changes while idle.
-The dashboard currently uses Chinese labels.
+Select one or more credential JSON files, or click **粘贴 JSON**, paste the
+contents, and choose **解析并导入**. Use **刷新全部** to query all accounts, or
+select an account to inspect its quota, reset credits, and records. A root
+`auth.json` can also be explicitly imported with **读取本地文件**. The dashboard
+currently uses Chinese labels.
 
 Supported credentials include Codex's nested `tokens` object and CLIProxyAPI's
 flat OAuth format. Both need an `access_token` and an account ID, supplied as
@@ -48,6 +50,32 @@ flat OAuth format. Both need an `access_token` and an account ID, supplied as
 allows the service to renew expired access tokens and save the updated credentials
 locally. These endpoints use ChatGPT account credentials; OpenAI API keys are for
 a separate API.
+
+## Multiple accounts and upgrades
+
+Each account has its own credentials, cache, schedules, and operation records.
+Imports for a recognized workspace and login identity update the existing
+profile. Different users in the same workspace stay separate. Without identity
+claims, only identical access credentials are merged; other credentials are
+stored separately.
+
+Switching changes the operation account in this dashboard, without replacing the
+Codex CLI login. Open tabs retain independent selections; new pages default to
+the most recently selected account. Refreshing another account does not switch
+the current page.
+
+Schedules continue to execute with their original accounts. One account's query
+failure or unresolved operation does not block another account. An account with
+an active request, pending schedule, or unresolved result cannot be removed.
+Removal deletes the stored credential copy and records, leaving source files
+unchanged.
+
+Restart the service when upgrading from the single-account version. The first
+startup copies the root `auth.json` and `state.json` into isolated account
+directories, retaining the originals as migration backups. Historical records
+are separated by account. Missing credentials remain unavailable, and pending
+work is never silently reassigned to a newly imported account. Token renewal
+updates only the corresponding profile's credential copy.
 
 ## Reset credits and schedules
 
@@ -90,7 +118,7 @@ Add `--demo` to operate the offline demo:
 ./run.sh stop --demo
 ```
 
-The demo uses a simulated account and its own data directory, with the same
+The demo uses two simulated accounts and its own data directory, with the same
 dashboard, scheduler, and operation tracking. Consumed demo credits remain
 consumed across restarts. Demo ports start at `8785`.
 
@@ -108,8 +136,10 @@ it when starting or restarting the service if your network needs a proxy.
 
 | Path | Contents |
 | --- | --- |
-| `auth.json` | OAuth credentials, restricted to the current user |
-| `state.json` | Usage cache, schedules, and operation records |
+| `auth.json`, `state.json` | Legacy data and migration backups; root credentials can be reimported explicitly |
+| `data/accounts/index.json` | Profile index, names, and default selection |
+| `data/accounts/<id>/auth.json` | Isolated credential copies with `0600` permissions |
+| `data/accounts/<id>/state.json` | Per-account usage cache, schedules, and operation records |
 | `.runtime.json`, `.server.lock` | Service identity and instance lock |
 | `server.log` | Service diagnostics |
 | `data/demo/` | Isolated demo credentials and state |
@@ -128,7 +158,7 @@ credentials and identifiers out of attachments.
 
 - **401 after renewal:** sign in to Codex again and import the updated `auth.json`.
 - **403 or connection failure:** check account access and the service's proxy settings.
-- **Account change blocked:** cancel pending schedules and resolve uncertain operations before switching accounts. Updating credentials for the same account is supported.
+- **Account removal blocked:** finish active requests, cancel pending schedules, and resolve uncertain operations. Switching to other accounts remains available.
 - **Redemption succeeded, verification pending:** refresh or use the read-only verification action. The successful operation remains recorded.
 - **State cannot be read:** stop the service and inspect the file. Valid operation records are required before redemptions can resume.
 
@@ -138,7 +168,8 @@ and the [CLIProxyAPI management dashboard](https://github.com/router-for-me/Cli-
 
 ## Development
 
-`core.py` handles credentials, quota queries, operation records, and scheduling.
+`core.py` handles one account's credentials, quota queries, records, and scheduling.
+`accounts.py` provides profile storage, migration, parallel queries, and binding.
 `server.py` exposes the local HTTP interface. `manage.py` controls the service
 process, `demo.py` supplies the simulated upstream, and `web/` contains the UI.
 
